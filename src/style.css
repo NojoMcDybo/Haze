@@ -51,3 +51,5 @@ html.overlay-document,html.overlay-document body,html.overlay-document #root{bac
 .haze-widget.glass{--glass-tint:#161616}
 :root[data-theme=light] .haze-widget.glass{--glass-tint:#fafafa}
 .haze-widget.high-contrast .surface-base{fill:var(--card);fill-opacity:1}
+
+.garmin-card{margin:24px 0;padding:24px;border:1px solid var(--border, #8884);border-radius:24px;background:var(--card, #8881)}.garmin-card h3{margin:8px 0}.garmin-pulse{font-size:36px;white-space:nowrap}.garmin-pulse small{font-size:14px}.garmin-devices{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}.garmin-card p{line-height:1.55}.garmin-card .toolbar-actions{flex-wrap:wrap}
