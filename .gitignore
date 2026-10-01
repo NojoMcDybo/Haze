@@ -1,0 +1,13 @@
+node_modules/
+dist/
+release/
+*.log
+.env*
+*.node
+*.obj
+*.lib
+*.exp
+*.pdb
+state/
+settings.json
+*.xml

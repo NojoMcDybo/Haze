@@ -1,0 +1,3 @@
+// Development-only server: static UI preview with explicitly marked demo data.
+const http=require('http'),fs=require('fs'),path=require('path');const root=path.resolve(__dirname,'../dist');
+http.createServer((req,res)=>{const u=new URL(req.url,'http://127.0.0.1:17836');const file=path.resolve(root,'.'+(u.pathname==='/'?'/index.html':u.pathname));if(!file.startsWith(root+path.sep)||!fs.existsSync(file)){res.writeHead(404).end();return;}res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.css':'text/css'})[path.extname(file)]||'application/octet-stream');fs.createReadStream(file).pipe(res);}).listen(17836,'127.0.0.1',()=>console.log('Demo: http://127.0.0.1:17836/?preview=1'));

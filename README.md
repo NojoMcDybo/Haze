@@ -1,0 +1,92 @@
+# Haze – Glukose im Blick
+
+Persönliches Dashboard und minimalistisches Windows-Widget für eine vorhandene Nightscout-Instanz. Haze verwendet weiterhin die bestehende interne Datenablage `nebel-glucose`, damit gespeicherte Profile, Fensterpositionen und DPAPI-geschützte Zugangsdaten beim Update erhalten bleiben.
+
+## Installieren und einrichten
+
+1. Einen selbst gebauten Installer aus `release/` im Windows-Datei-Explorer starten (Build siehe unten). Im Repository sind keine fertigen Installer enthalten. Die Installation erfolgt für dein Windows-Konto unter `%LOCALAPPDATA%\Programs\Nebel`.
+2. Danach **Haze** über die Desktop-Verknüpfung oder das Startmenü öffnen. Alte PowerShell-Overlays können geschlossen werden.
+3. Zunächst **Demo erkunden** wählen oder **Nightscout verbinden**.
+4. Die Adresse deiner Nightscout-Instanz eingeben, bei lokaler Installation zum Beispiel `http://127.0.0.1:1337`. Falls erforderlich einen Nightscout-Token mit Leserechten verwenden, keinen Dexcom-Benutzernamen und kein Dexcom-Passwort.
+5. **Verbindung testen** zeigt den letzten gültigen Wert mit Datum und Uhrzeit. „Server erreichbar“ allein bedeutet nicht „aktuelle Messung“.
+6. Einheit, Theme und Startoptionen wählen und die Verbindung übernehmen.
+
+Ein normaler Start über die Desktop- oder Startmenü-Verknüpfung öffnet das Dashboard. Die Option „Beim Start nur Widget anzeigen“ gilt nur für den Windows-Autostart. Wenn das Widget nicht greifbar ist, im Infobereich **Position entsperren / Bearbeiten** wählen oder im Dashboard das Profil **Arbeit** auswählen; „Gaming“ kann bewusst Sperre und Durchklicken speichern.
+
+Nightscout und seine Datenbank laufen separat und müssen selbst eingerichtet werden. Haze kann unter Windows automatisch nach der Anmeldung starten. Die persönliche Nightscout-Installation und ihre Zugangsdaten sind nicht Teil dieses Repositorys. Bei Verbindungsfehlern versucht Haze alle fünf Sekunden erneut zu verbinden.
+
+Das Paket ist lokal gebaut und **nicht mit einem Publisher-Zertifikat signiert**. Eine offizielle Veröffentlichungsquelle ist noch nicht eingerichtet. Automatische App-Updates sind noch nicht eingerichtet.
+
+## Widget und Andocken
+
+Das Widget zeigt Wert, Trend, Einheit, Messwertalter und eine kleine Änderungszahl in Klammern direkt hinter dem Messwert. Es hat keine Werkzeugleiste und keine Hover-Schaltflächen. In **Einstellungen → Widget** kannst du die Schrift stufenlos ändern, Horizontal/Vertikal/Automatisch wählen, Klar oder das farblose Liquid Glass mit nativer Randbrechung und einstellbarer Weichzeichnung verwenden, die Anzeige sperren und Durchklicken einschalten.
+
+Beim Ziehen in eine Bildschirmkante entstehen weiche konkave Schultern als echte Fensterkontur. Die Kontur und die Position werden über ungefähr 260 ms gemeinsam animiert. An allen vier Kanten kann das Widget wieder gelöst werden; mit aktivierter Bewegungsreduktion werden dieselben Endformen ohne ausgeprägte Animation verwendet. Transparente Schulterbereiche werden als Windows-Fensterregion ausgeschlossen und blockieren darunterliegende Anwendungen nicht.
+
+„Anzeige an der Taskleiste“ ist eine separate schmale Anzeige unmittelbar außerhalb der Taskleiste. Windows 11 stellt dafür keine zuverlässige frei gestaltbare native Textfläche bereit; Haze verändert daher weder Explorer noch die Shell.
+
+## Bedienung
+
+- Oben: Hell, Dunkel oder Windows-Systemdarstellung, Profil und Einstellungen.
+- Verlauf: 3, 6, 12 oder 24 Stunden. Jeder Punkt entspricht einer tatsächlichen Messung; es gibt keine Verbindungslinien oder interpolierten Werte. Punkt anklicken oder mit Tab fokussieren, dann Pfeil links/rechts verwenden.
+- Widget: über den Button öffnen. An Kanten und Ecken frei skalieren. Alle Einstellungen liegen in der Haupt-App oder im Infobereich.
+- In den Einstellungen: Einrasten, Positionssperre, Durchklicken. Größe und Position werden automatisch gespeichert.
+- **Strg + Umschalt + G** schaltet Durchklicken um. Beim Zurückschalten wird die Positionssperre ebenfalls gelöst. Die Kombination ist konfigurierbar; belegte Kombinationen werden gemeldet.
+- Der Infobereich neben der Uhr bietet Dashboard, Overlay, Profilwahl, Durchklicken, Entsperren, Rücksetzen und vollständiges Beenden. Das Dashboard-X blendet nur das Dashboard aus.
+- Änderungen an einem Profil mit **Im Profil speichern** ausdrücklich sichern. Arbeit und Gaming sind manuell auswählbar; keine automatische Spielerkennung.
+- Bei verschwundenem oder gesperrtem Overlay: im Infobereich **Overlay-Position und Größe zurücksetzen**. Das entfernt auch Durchklicken und Sperre.
+
+Für Rocket League und andere Spiele **Fenstermodus oder randloses Vollbild** verwenden. Über exklusivem Vollbild wird keine universelle Sichtbarkeit versprochen. Es gibt keine Eingriffe in Spielprozesse. Messwertupdates fordern keinen Tastaturfokus an.
+
+## Webansicht
+
+In der installierten App: **Einstellungen → App → Lokale Webansicht öffnen**. Adresse: `http://127.0.0.1:17834/`. Die App muss dabei laufen. Der Browser erhält dieselben Daten aus dem einen zentralen Abruf wie Dashboard und Overlay. Browser schließen beendet den Abruf nicht.
+
+Die Webansicht ist ausschließlich an Loopback gebunden. API-Endpunkte verlangen ein HttpOnly/SameSite-Sitzungscookie, Zustandsänderungen zusätzlich einen passenden Origin-Header. Es werden keine Tokens an die Oberfläche ausgegeben. Diese Version ist **kein öffentlich gehosteter Webdienst**. Für externes Hosting fehlen Benutzeranmeldung, TLS-Betrieb und eine separate geschützte Serverbereitstellung.
+
+## Daten und Zugangsdaten
+
+- Interne Werte bleiben ungerundete mg/dL. mmol/L = mg/dL ÷ 18. Farbe wird vor Rundung bestimmt: ≤70 niedrig, ≥180 hoch, dazwischen normal.
+- Abruf alle 60 Sekunden. Altersanzeige alle 15 Sekunden. Nach Standby und bei einem Online-Ereignis wird zusätzlich aktualisiert.
+- Standardmäßig sind Werte nach **mehr als 10 Minuten** veraltet. Die Frist ist einstellbar. Veraltete Trends werden ausgeblendet.
+- Sensorcodes, ungültige Messungen und zukünftige Zeitstempel werden ausgeschlossen. Zukunftszeitstempel lösen einen Datenhinweis aus. Keine automatische Rückkehr zu Demo bei Live-Fehlern.
+- Änderungen verwenden den tatsächlichen Abstand zum vorherigen Wert; bei mehr als 20 Minuten Abstand ist die Änderungsanzeige nicht verfügbar.
+- Die Statistik „Im Bereich“ ist der Anteil vorhandener Messpunkte, keine zeitgewichtete klinische Auswertung bei Datenlücken.
+- Windows speichert den Lesetoken verschlüsselt über Electron `safeStorage` (DPAPI). Einstellungen liegen im Electron-Benutzerdatenordner `nebel-glucose` unter `%APPDATA%`. Diese Dateien nicht zusammen mit dem Quellcode weitergeben.
+- Die App sendet ausschließlich GET-Anfragen an Nightscout. Nightscout-Lesetokens werden für dessen API intern als Tokenparameter übertragen, nicht in öffentliche Links oder App-Protokolle geschrieben. HTTPS ist bei entfernten Servern erforderlich.
+
+## Updates
+
+Die installierte Version wird angezeigt. Mangels fester vertrauenswürdiger Veröffentlichungsquelle meldet die Updateansicht ausdrücklich, dass keine Onlineprüfung möglich ist. Automatischer Download, Signaturprüfung und In-App-Installation einer neuen veröffentlichten Version sind daher **noch nicht eingerichtet**. Keine vorgetäuschte Erfolgsmeldung, kein erzwungener Neustart.
+
+Für ein späteres manuelles Update Haze im Infobereich beenden und den neuen vertrauenswürdigen Installer ausführen. Der Installer überschreibt das Programm und lässt Benutzereinstellungen und verschlüsselte Zugangsdaten bestehen. Upgrade über eine echte spätere Version ist noch zu testen.
+
+## Quellcode und Build
+
+Voraussetzung: Node.js 22 oder neuer auf Windows. Für `npm run package` muss zuvor das native Glasmodul mit dem unten genannten PowerShell-Skript gebaut werden. Ohne dieses Modul verwendet die App die transparente Ersatzdarstellung.
+
+```powershell
+npm ci
+npm test
+npm run build
+# Optional für natives Glas: Visual Studio C++ Build Tools und Windows SDK benötigt
+powershell -ExecutionPolicy Bypass -File desktop/native-glass/build.ps1
+npm start
+npm run package
+```
+
+`shared/model.mjs` enthält Normalisierung, Altersprüfung, Einheiten und Grenzwerte; `shared/provider.mjs` den ausschließlich lesenden Nightscout-Anbieter. Alle Ansichten verwenden `src/main.tsx` und dieselben Komponenten. `desktop/main.cjs` verantwortet Abruf, verschlüsselte Speicherung, Fenster, Profile, Tray und lokale Webansicht.
+
+Der gelieferte Installer wurde wegen der Prozessbeschränkungen der Arbeitsumgebung direkt mit dem beigefügten NSIS-Skript gebaut. Das alternative Standard-Build über electron-builder ist konfiguriert, wurde hier jedoch nicht vollständig ausgeführt. Der konkrete Paketablauf steht in `docs/BUILD.md`.
+
+Eine reine Designvorschau lässt sich nach dem Build mit `node desktop/preview-server.cjs` starten: `http://127.0.0.1:17836/?preview=1`. Diese Vorschau ist ausdrücklich Demo und ersetzt keine Desktop-Funktionsprüfung.
+
+## Prüfstand
+
+Siehe `docs/PRUEFBERICHT.md`. Kernlogik und Browseransicht wurden geprüft. Autostart nach tatsächlicher Anmeldung, echte Monitorwechsel, Gaming, Tray und Durchklicken brauchen noch die Abnahme auf dem normalen Windows-Desktop. Eigene Alarme, Prognosen und Therapieempfehlungen sind nicht Bestandteil dieser Anwendung.
+
+Details zur Integration, lokaler Hintergrundverarbeitung und Grenzen: [Farbloses Glas](docs/COLORLESS-GLASS.md).
+
+## Vordergrund und Spiele
+
+Das Widget ist nicht fokussierbar und wird ohne Aktivierung regelmäßig nach vorne gesetzt. Für Spiele den randlosen Fenstermodus verwenden; exklusives Vollbild wird nicht zuverlässig unterstützt.
