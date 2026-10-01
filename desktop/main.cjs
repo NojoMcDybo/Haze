@@ -3,6 +3,7 @@ const fs=require('fs'),path=require('path'),http=require('http'),crypto=require(
 const WidgetController=require('./widget-controller.cjs');
 const OpticalGlass=require('./optical-glass.cjs');
 const keepVisible=require('./keep-visible.cjs');
+const {NotchBridge}=require('./notch-bridge.cjs');
 // Preserve the 1.0 storage identity, including DPAPI secrets, despite the new product name.
 app.setPath('userData',path.join(app.getPath('appData'),'nebel-glucose'));
 app.setAppUserModelId('local.nebel.glucose');
@@ -14,7 +15,7 @@ if(process.env.NEBEL_DATA_DIR)app.setPath('userData',path.resolve(process.env.NE
 let model,provider,config,feed={entries:[],error:null,kind:null,future:0,rejected:0,checkedAt:null},dashboard,overlay,tray,server,quitting=false,polling=false,generation=0,timer,visibilityTimer,webPort=17834,shortcutError=null,resizeStart=null;
 const events=new Set(),webKey=crypto.randomBytes(32).toString('hex');
 let configPath;
-let widget,controller,optical,taskbar,taskbarInfo={},taskbarProbe=false,taskbarChild;
+let notch,notchClosed=false,widget,controller,optical,taskbar,taskbarInfo={},taskbarProbe=false,taskbarChild;
 function displays(){return screen.getAllDisplays().map(d=>({...d,autoHideEdges:taskbarInfo[d.id]||[]}));}
 function probeTaskbars(){if(taskbarProbe||process.platform!=='win32')return;taskbarProbe=true;const data=displays().map(d=>({id:d.id,...screen.dipToScreenRect(null,d.bounds)}));taskbarChild=require('child_process').execFile('powershell.exe',['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(fs.readFileSync(path.join(__dirname,'taskbar-info.ps1'),'utf8').replace('param([string]$Monitors)',"$Monitors='"+Buffer.from(JSON.stringify(data)).toString('base64')+"'"),'utf16le').toString('base64')],{windowsHide:true,timeout:10000},(err,out)=>{taskbarProbe=false;if(!err){try{taskbarInfo=JSON.parse(out);}catch{}}if(controller&&!controller.gesture)controller.apply();placeTaskbar();});}
 function placeTaskbar(){if(!taskbar||taskbar.isDestroyed())return;const d=displays().find(d=>d.id===config.taskbarMonitor)||displays().find(d=>d.id===screen.getPrimaryDisplay().id);taskbar.setBounds(widget.taskbarBounds(d,config.unit==='mmol/L'?300:280,40));}
@@ -23,7 +24,7 @@ function titleTheme(){if(!dashboard||dashboard.isDestroyed())return;const dark=c
 function persist(){fs.mkdirSync(path.dirname(configPath),{recursive:true});fs.writeFileSync(configPath+'.tmp',JSON.stringify(config,null,2));fs.renameSync(configPath+'.tmp',configPath);}
 function publicConfig(){const {secret,...safe}=config;return {...safe,hasToken:!!secret};}
 function state(){return {config:publicConfig(),feed,systemDark:nativeTheme.shouldUseDarkColors,version:app.getVersion(),desktop:true,shortcutError,webPort,widgetFrame:controller?.frame,glassStatus:optical?.status,highContrast:nativeTheme.shouldUseHighContrastColors,displays:displays().map(d=>({id:d.id,label:d.label||'Monitor '+d.id})),overlayVisible:!!overlay?.isVisible(),update:{configured:false,message:'Noch keine vertrauenswürdige Veröffentlichungsquelle eingerichtet. Updates werden nicht automatisch heruntergeladen.'}};}
-function broadcast(){const s=state();for(const w of [dashboard,overlay,taskbar])if(w&&!w.isDestroyed())w.webContents.send('state',s);for(const res of events)res.write(`data: ${JSON.stringify(s)}\n\n`);}
+function broadcast(){notch?.update(feed,config);const s=state();for(const w of [dashboard,overlay,taskbar])if(w&&!w.isDestroyed())w.webContents.send('state',s);for(const res of events)res.write(`data: ${JSON.stringify(s)}\n\n`);}
 function token(){if(!config.secret)return '';try{return safeStorage.decryptString(Buffer.from(config.secret,'base64'));}catch{throw Error('Lesetoken kann mit diesem Windows-Konto nicht entschlüsselt werden. Bitte neu eingeben.');}}
 async function refresh(){if(polling)return;polling=true;const current=generation;try{const d=config.source==='demo'?provider.demoProvider():await provider.nightscout(config.url,token());if(current!==generation)return;feed={...d,error:null,kind:null,checkedAt:Date.now()};}catch(e){if(current===generation)feed={...feed,error:e.message,kind:e.kind||'credentials',checkedAt:Date.now()};}finally{polling=false;broadcast();if(current!==generation)refresh();}}
 function areas(){const p=screen.getPrimaryDisplay();return [p,...screen.getAllDisplays().filter(d=>d.id!==p.id)].map(d=>d.workArea);}
@@ -56,8 +57,8 @@ function trayMenu(){if(!tray)return;tray.setContextMenu(Menu.buildFromTemplate([
  {label:'Einstellungen',click:()=>openDashboard(true)},{type:'separator'},
  {label:'Anwendung vollständig beenden',click:()=>{quitting=true;app.quit();}}
  ]));}
-const allowedSettings=['unit','theme','showDelta','staleMinutes','snap','view','locked','clickThrough','overlayOnly','fontSize','alignment','surface','nativeGlass','glassBlur','glassOpacity','reduceMotion','taskbarVisible','taskbarMonitor'];
-function validateSettings(p){if('nativeGlass' in p&&typeof p.nativeGlass!=='boolean')throw Error('Ungültige Glaseinstellung');for(const [k,lo,hi] of [['fontSize',20,120],['glassOpacity',.05,1],['glassBlur',0,18]])if(k in p&&(!Number.isFinite(p[k])||p[k]<lo||p[k]>hi))throw Error('Ungültige Einstellung: '+k);if(p.alignment&&!['auto','horizontal','vertical'].includes(p.alignment))throw Error('Ungültige Ausrichtung');if(p.surface&&!['clear','glass'].includes(p.surface))throw Error('Ungültige Oberfläche');if(p.unit&&!['mg/dL','mmol/L'].includes(p.unit))throw Error('Ungültige Einheit');if(p.theme&&!['dark','light','system'].includes(p.theme))throw Error('Ungültiges Theme');if(p.view&&!['minimal','history'].includes(p.view))throw Error('Ungültige Ansicht');if(p.staleMinutes!==undefined&&(!Number.isFinite(p.staleMinutes)||p.staleMinutes<1||p.staleMinutes>60))throw Error('Frist muss zwischen 1 und 60 Minuten liegen.');}
+const allowedSettings=['unit','theme','showDelta','staleMinutes','snap','view','locked','clickThrough','overlayOnly','fontSize','alignment','surface','nativeGlass','glassBlur','glassOpacity','reduceMotion','taskbarVisible','taskbarMonitor','fluid','adhesion','widgetText','notch'];
+function validateSettings(p){if('nativeGlass' in p&&typeof p.nativeGlass!=='boolean')throw Error('Ungültige Glaseinstellung');if('notch' in p&&typeof p.notch!=='boolean')throw Error('Ungültige Notch-Einstellung');if(p.widgetText&&!['auto','light','dark'].includes(p.widgetText))throw Error('Ungültige Schriftfarbe');for(const [k,lo,hi] of [['fontSize',20,120],['glassOpacity',.05,1],['glassBlur',0,18],['fluid',0,100],['adhesion',35,145]])if(k in p&&(!Number.isFinite(p[k])||p[k]<lo||p[k]>hi))throw Error('Ungültige Einstellung: '+k);if(p.alignment&&!['auto','horizontal','vertical'].includes(p.alignment))throw Error('Ungültige Ausrichtung');if(p.surface&&!['clear','glass'].includes(p.surface))throw Error('Ungültige Oberfläche');if(p.unit&&!['mg/dL','mmol/L'].includes(p.unit))throw Error('Ungültige Einheit');if(p.theme&&!['dark','light','system'].includes(p.theme))throw Error('Ungültiges Theme');if(p.view&&!['minimal','history'].includes(p.view))throw Error('Ungültige Ansicht');if(p.staleMinutes!==undefined&&(!Number.isFinite(p.staleMinutes)||p.staleMinutes<1||p.staleMinutes>60))throw Error('Frist muss zwischen 1 und 60 Minuten liegen.');}
 async function action(type,p={}){switch(type){
  case 'settings':validateSettings(p);for(const k of allowedSettings)if(k in p)config[k]=p[k];if('shortcut' in p){registerShortcut(p.shortcut);config.shortcut=p.shortcut;}if('autoStart' in p){if(!app.isPackaged&&p.autoStart)throw Error('Autostart ist erst in der installierten App verfügbar.');app.setLoginItemSettings({name:'Nebel',openAtLogin:!!p.autoStart,path:process.execPath,args:['--autostart']});config.autoStart=!!p.autoStart;}applyOverlay();persist();break;
  case 'test':{if(p.source==='demo')return {ok:true,...provider.demoProvider()};try{return {ok:true,...await provider.nightscout(p.url,p.token||token())};}catch(e){return {ok:false,error:e.message,kind:e.kind};}}
@@ -110,10 +111,13 @@ if(!app.requestSingleInstanceLock())app.quit();else{
  const updateDisplays=()=>{if(controller){controller.apply();controller.record();}placeTaskbar();probeTaskbars();broadcast();};
  screen.on('display-removed',updateDisplays);screen.on('display-added',updateDisplays);screen.on('display-metrics-changed',updateDisplays);powerMonitor.on('resume',()=>{optical?.suspend(false);updateDisplays();refresh();});
  visibilityTimer=setInterval(()=>keepVisible([overlay,taskbar]),1000);
- startWeb();refresh();timer=setInterval(()=>{if(feed.error||!feed.checkedAt||Date.now()-feed.checkedAt>=60000)refresh();},5000);
+ if(!testMode&&!webTest)notch=new NotchBridge({model,open:app.isPackaged?process.execPath:undefined});
+ startWeb();refresh();timer=setInterval(()=>{if(feed.error||!feed.checkedAt||Date.now()-feed.checkedAt>=60000)refresh();notch?.update(feed,config);},5000);
  if(!webTest){if(config.overlayOnly&&config.configured&&autoStarted)openOverlay();else openDashboard();if(config.overlayVisible||testMode)openOverlay();syncTaskbar();probeTaskbars();if(app.isPackaged&&config.autoStart)app.setLoginItemSettings({name:'Nebel',openAtLogin:true,path:process.execPath,args:['--autostart']});}
  });
  app.on('window-all-closed',()=>{});
+ // Remove the value from the Notch before exiting (bounded wait; ttl cleans up otherwise).
+ app.on('will-quit',e=>{if(notch?.active&&!notchClosed){e.preventDefault();notchClosed=true;Promise.race([notch.remove(),new Promise(r=>setTimeout(r,800))]).finally(()=>app.exit(0));}});
  app.on('before-quit',()=>{quitting=true;optical?.dispose();controller?.cancel();taskbarChild?.kill();clearInterval(timer);clearInterval(visibilityTimer);globalShortcut.unregisterAll();for(const r of events)r.end();server?.close();tray?.destroy();});
 }
 

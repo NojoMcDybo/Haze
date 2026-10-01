@@ -21,3 +21,7 @@ Die Aktualisierung ist auf ungefähr 30 Prüfungen pro Sekunde begrenzt. Ausblen
 Der Zusatz benötigt Windows, Direct3D 11 und einen unterstützten SDR-Monitor. HDR und gedrehte Monitore werden vom Zusatz abgelehnt und verwenden die transparente Ersatzanzeige. Exklusives Vollbild, mehrere GPUs, Remote Desktop und langfristige Spielelast sind nicht allgemein zugesichert. Ein kurzer lokaler Funktionstest ersetzt keinen Gaming-Dauertest.
 
 Die Browser-Vorschau zeigt die neutrale Deckfläche; echte Hintergrundbrechung gibt es nur im Desktop-Widget.
+
+## Korrektur 1.3
+
+Bis einschließlich 1.2 startete das native Glas in der Electron-App nie: Der Konstantenpuffer `Params` war durch die zusätzlichen Felder `strength`/`padding` 40 Byte groß. Direct3D 11 verlangt ein Vielfaches von 16 Byte und lehnte `CreateBuffer` mit `E_INVALIDARG` ab; die App fiel still auf die transparente Ersatzfläche zurück. `Params` hat jetzt 48 Byte, ein `static_assert` verhindert den Rückfall. Shader und Linsenrechnung sind sonst identisch mit dem Widget-Lab-Renderer (`GlassNative.cpp`), nur um die Deckkraft (`strength`) erweitert.

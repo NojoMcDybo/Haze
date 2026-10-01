@@ -51,3 +51,9 @@ html.overlay-document,html.overlay-document body,html.overlay-document #root{bac
 .haze-widget.glass{--glass-tint:#161616}
 :root[data-theme=light] .haze-widget.glass{--glass-tint:#fafafa}
 .haze-widget.high-contrast .surface-base{fill:var(--card);fill-opacity:1}
+/* Schriftfarbe unabhängig vom App-Theme (aus dem Widget Lab). Spezifität über :is() ≥ Theme-Regeln. */
+:is(:root,:root[data-theme=light],:root[data-theme=dark]) .haze-widget.text-light{color:var(--text);--text:#e8efef;--muted:#c2d0d1;--high:#edbc56;--low:#ff7971;--card:#13272b;--glass-tint:#161616}
+:is(:root,:root[data-theme=light],:root[data-theme=dark]) .haze-widget.text-dark{color:var(--text);--text:#162325;--muted:#43585c;--high:#885e00;--low:#bd302b;--card:#f2f7f6;--glass-tint:#fafafa}
+.haze-widget.glass.text-light .widget-number,.haze-widget.glass.text-light .widget-trend{text-shadow:0 1px 2px #000a,0 0 5px #0004}
+.haze-widget.glass.text-dark .widget-number,.haze-widget.glass.text-dark .widget-trend{text-shadow:0 1px 2px #fff9,0 0 5px #fff6}
+.haze-widget.glass.text-dark .widget-meta,.haze-widget.glass.text-dark .widget-delta-inline{text-shadow:0 1px 2px #fff8}

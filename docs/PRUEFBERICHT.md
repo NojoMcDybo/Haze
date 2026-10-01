@@ -74,3 +74,18 @@ Transparenzregler: 0 bis 95 Prozent. Im laufenden UI 0, 95 und 82 Prozent geprü
 Transparenzfehler behoben: html/:root hatte weiterhin einen deckenden Hintergrund. Overlay-Dokument, body und root sind jetzt explizit transparent; Farbschema verhindert einen impliziten dunklen Canvas. Installierte App aktualisiert. Native Sichtprüfung zeigt die darunterliegende Spieloberfläche durch das Widget. TypeScript und Build bestanden. Das vorhandene Setup-Paket enthält diesen nachträglichen Fix noch nicht; die installierte App und der Quellcode sind aktualisiert.
 
 Haze 1.2 colorless glass: native addon built (166400 bytes), export smoke test passed, TypeScript and 15 JS/geometry/lifecycle tests passed. Installer built. Full interactive GPU validation was attempted but the desktop launch was blocked by the current approval/usage limit; installer is not installed over the user's running 1.1 version yet.
+
+
+## Update 1.3.0 – 1. Oktober 2026: Widget-Lab-Integration
+
+Umgebung: Windows 11 x64, Node.js 24.15, Electron 44.4.3, VS Build Tools 18, normaler interaktiver Desktop (kein Sandbox-Desktop). Zwei Monitore (1920×1080 primär, 2560×1440 skaliert).
+
+Bestanden:
+
+- `npm test`: 22 Tests, davon neu: fluide Kontur an allen vier Kanten (bündig, konkave Schultern, transparente Ecken in der Region), Hals verjüngt sich mit dem Abstand, Ziehen/Abreißen/Wiederanhaften an allen vier Kanten inkl. 250-ms-Sperre nach dem Abreißen, Einschwingen auf die Kante, reduzierte Bewegung ohne Timer, Abrissdistanz aus Haftstrecke × Flüssigkeit, keine Andockkante zwischen Monitoren, Notch-Payload (Farben, Trend, Änderung, veraltet, mmol/L), Deduplizierung, einmaliger Alert, TTL-Erneuerung, Abmelden, nicht erreichbare Notch.
+- TypeScript-Prüfung und Produktions-Build.
+- Natives Glas: Addon gebaut; `create` 0, `configure` 0, Bildzähler steigt, Shader-Selbsttest `test()` = 63 (alle sechs Prüfungen). Vorher `create` = `E_INVALIDARG` (siehe COLORLESS-GLASS.md, Korrektur 1.3).
+- Laufende App (Demo, isolierter Datenordner): Glasstatus „Farbloses Glas aktiv“, angedockte Kontur oben mit Schultern, „Vom Rand lösen“ mit Dehnen und Einschwingen, Glas bleibt danach aktiv.
+- Notch live: Aktivität `haze-bz` erscheint mit „→ −5 · vor 2 Min.“; nach „Beenden“ entfernt.
+
+Offen: echtes Ziehen mit der Maus an allen Kanten auf dem Zielrechner abnehmen (Gefühl von Flüssigkeit und Haftstrecke), Glas während Rocket League, Mixed-DPI beim Ziehen zwischen Monitoren. Das Widget fehlt mit aktivem Glas absichtlich in Screenshots.
