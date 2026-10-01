@@ -34,3 +34,32 @@ test('disconnect and renderer loss clear readings',()=>{
  g.reset();assert.equal(g.state.reading,null);assert.equal(g.state.connected,false);
  assert.throws(()=>g.update({kind:'reading',bpm:70}));
 });
+import {recordHeartRate,restoreHeartHistory,heartSegments,nearestHeartRate,publicHeartHistory,HEART_SPAN} from '../shared/garmin.mjs';
+test('pulse history: one averaged value per minute, contact loss ignored, 24 h window',()=>{
+ const h=[],t0=Date.UTC(2026,9,1,12,0,0);
+ recordHeartRate(h,70,t0+1000);recordHeartRate(h,80,t0+30000);recordHeartRate(h,200,t0+40000,false);recordHeartRate(h,0,t0+41000);
+ assert.deepEqual(publicHeartHistory(h),[{time:t0,bpm:75}]);
+ recordHeartRate(h,90,t0+60000);recordHeartRate(h,60,t0-60000);
+ assert.deepEqual(publicHeartHistory(h).map(x=>x.bpm),[75,90],'older minutes are not inserted backwards');
+ recordHeartRate(h,100,t0+HEART_SPAN+120000);assert.deepEqual(publicHeartHistory(h).map(x=>x.bpm),[100],'older than 24 h dropped');
+});
+test('restored history is validated, sorted, de-duplicated and expired',()=>{
+ const now=Date.UTC(2026,9,1,12,0,0);
+ const r=restoreHeartHistory([{time:now-60000,bpm:80,n:3},{time:now-120000,bpm:70},{time:now-60000,bpm:99},{time:now-HEART_SPAN-60000,bpm:60},{time:now+60000,bpm:60},{time:now-30000,bpm:60},{time:now-180000,bpm:500},'x',null],now);
+ assert.deepEqual(r.map(x=>[x.time,x.bpm,x.n]),[[now-120000,70,1],[now-60000,80,3]]);
+ assert.deepEqual(restoreHeartHistory({nope:1},now),[]);
+});
+test('gaps longer than 2 minutes break the pulse line; nearest value stays within 90 s',()=>{
+ const m=60000,h=[0,1,2,6,7].map(i=>({time:i*m,bpm:60+i}));
+ assert.deepEqual(heartSegments(h,0,10*m).map(s=>s.map(x=>x.bpm)),[[60,61,62],[66,67]]);
+ assert.deepEqual(heartSegments(h,2*m,6*m).map(s=>s.length),[1,1]);
+ assert.equal(nearestHeartRate(h,6.4*m).bpm,66);assert.equal(nearestHeartRate(h,4*m),null);
+});
+test('Garmin keeps pulse history across reconnects and saves it to disk',async()=>{
+ const fs=await import('node:fs'),os=await import('node:os'),path=await import('node:path');
+ const file=path.join(fs.mkdtempSync(path.join(os.tmpdir(),'haze-hr-')),'heart-rate.json');
+ const g=new Garmin(()=>{});await g.load(file);clearInterval(g.timer);
+ g.update({kind:'status',connected:true,name:'Watch'});g.update({kind:'reading',bpm:72,contact:true});
+ assert.equal(g.state.history.length,1);g.reset();assert.equal(g.state.history.length,1,'disconnect keeps history');
+ g.save();const again=new Garmin(()=>{});await again.load(file);clearInterval(again.timer);assert.equal(again.state.history[0].bpm,72);
+});

@@ -5,6 +5,7 @@ import {arrows,category,statusText,format,freshness,delta,demo,defaults} from '.
 import './style.css';
 import {Widget} from './Widget';
 import {GarminPanel,useGarminConnection} from './Garmin';
+import {heartSegments,nearestHeartRate} from '../shared/garmin.mjs';
 import {DockLab} from './DockLab';
 import {widgetDefaults,migrate} from '../shared/widget.mjs';
 declare global {interface Window {nebel?:any;}}
@@ -40,24 +41,54 @@ const api={
  subscribe(fn:any){if(desktop)return window.nebel.subscribe(fn);if(preview){const cb=()=>fn({...previewState,config:{...previewState.config}});addEventListener('preview-change',cb);return()=>removeEventListener('preview-change',cb);}const e=new EventSource('/api/events');e.onmessage=m=>fn(JSON.parse(m.data));return()=>e.close();}
 };
 function ThemeSwitch({theme,onChange}:any){return <div className="theme-switch" role="group" aria-label="Farbschema">{[['light',Sun,'Hell'],['dark',Moon,'Dunkel'],['system',Monitor,'System']].map(([v,Icon,label]:any)=><button key={v} className={theme===v?'selected':''} aria-label={label} title={label} aria-pressed={theme===v} onClick={()=>onChange(v)}><Icon size={17}/></button>)}</div>}
-function Chart({entries,hours=3,unit,now,compact=false}:any){
- const [selected,setSelected]=useState<number|null>(null);const svg=useRef<SVGSVGElement>(null);const [dimensions,setDimensions]=useState({width:900,height:compact?130:260});
+function Chart({entries,hours=3,unit,now,compact=false,heart=[],heartActive=false}:any){
+ const [selected,setSelected]=useState<number|null>(null),[hover,setHover]=useState<number|null>(null);const svg=useRef<SVGSVGElement>(null);const [dimensions,setDimensions]=useState({width:900,height:compact?130:260});
  useEffect(()=>{if(!svg.current)return;const ro=new ResizeObserver(([entry])=>{setDimensions({width:Math.max(120,entry.contentRect.width),height:Math.max(70,entry.contentRect.height)});});ro.observe(svg.current);return()=>ro.disconnect();},[]);
  const {points,low,high,start,end,min,max}=useMemo(()=>{const end=Math.floor(now/60000)*60000+60000,start=end-hours*3600000;const pts=entries.filter((e:any)=>e.time>=start&&e.time<=end);return {points:pts,low:70,high:180,start,end,min:Math.min(40,...pts.map((p:any)=>p.value-15)),max:Math.max(220,...pts.map((p:any)=>p.value+20))};},[entries,hours,Math.floor(now/60000)]);
- const W=dimensions.width,H=dimensions.height,L=compact?6:14,R=compact?35:45,T=compact?8:20,B=compact?20:30;
+ const segments=useMemo(()=>compact?[]:heartSegments(heart||[],start,end),[heart,start,end,compact]);
+ const showHeart=!compact&&(segments.length>0||heartActive);
+ const W=dimensions.width,H=dimensions.height,L=compact?6:14,R=compact?35:45,T=compact?8:20,B=compact?20:showHeart?10:30;
  const xp=(t:number)=>L+(t-start)/(end-start)*(W-L-R),yp=(v:number)=>T+(max-v)/(max-min)*(H-T-B);
- const point=selected==null?null:points[selected];
- useEffect(()=>setSelected(null),[hours,entries]);
+ useEffect(()=>{setSelected(null);setHover(null);},[hours,entries]);
  const time=(t:number)=>new Date(t).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
- return <div className={'chart '+(compact?'compact':'')}>
+ // Shared time cursor: hover (pointer) or the selected glucose point drives both panels.
+ const nearestPoint=(t:number)=>{let best=-1;points.forEach((p:any,i:number)=>{if(Math.abs(p.time-t)<=300000&&(best<0||Math.abs(p.time-t)<Math.abs(points[best].time-t)))best=i;});return best;};
+ const cursorTime=hover??(selected==null?null:points[selected]?.time??null);
+ const point=cursorTime==null?null:(hover!=null?points[nearestPoint(hover)]:points[selected!])||null;
+ const pulse=cursorTime==null||!showHeart?null:nearestHeartRate(heart||[],point?.time??cursorTime);
+ const move=(e:React.PointerEvent)=>{if(compact)return;const r=svg.current?.getBoundingClientRect();if(!r)return;const x=e.clientX-r.left;if(x<L||x>W-R){setHover(null);return;}setHover(start+(x-L)/(W-L-R)*(end-start));};
+ const cursorX=cursorTime==null?null:xp(point?.time??cursorTime);
+ const readout=cursorTime==null?(showHeart?'Zeitpunkt wählen: Glukose und Puls':'Messpunkt auswählen'):[time(point?.time??cursorTime),point?`${format(point.value,unit)} ${unit}`:'kein Glukosewert',showHeart?(pulse?`♥ ${pulse.bpm} bpm`:'kein Puls'):null].filter(Boolean).join(' · ');
+ return <div className={'chart '+(compact?'compact':'')} onPointerMove={move} onPointerLeave={()=>setHover(null)}>
  <svg ref={svg} viewBox={`0 0 ${W} ${H}`} role="group" aria-label={`Glukoseverlauf der letzten ${hours} Stunden. Messpunkte mit Tab auswählen, Pfeiltasten zum Wechseln.`} preserveAspectRatio="none">
  <rect x={L} y={yp(high)} width={W-L-R} height={yp(low)-yp(high)} fill="var(--range)"/>
  {[high,low].map(v=><g key={v}><line x1={L} x2={W-R} y1={yp(v)} y2={yp(v)} stroke={v===low?'var(--low)':'var(--high)'} strokeWidth="1.2"/><text x={W-R+14} y={yp(v)+5} fill={v===low?'var(--low)':'var(--high)'}>{format(v,unit)}</text></g>)}
  <line x1={W-R} x2={W-R} y1={T} y2={H-B} stroke="var(--border)" strokeDasharray="3 5"/>
- {[0,.5,1].map(v=><text key={v} x={L+v*(W-L-R)} y={H-8} textAnchor={v===0?'start':v===1?'end':'middle'} fill="var(--muted)">{time(start+(end-start)*v)}</text>)}
- {points.map((p:any,i:number)=><circle key={p.time} cx={xp(p.time)} cy={yp(p.value)} r={Math.max(1.2,Math.min(compact?2.6:4.1,(W-L-R)/Math.max(points.length,1)/2.6))} className={'point '+category(p.value)+(selected===i?' active':'')} tabIndex={i===(selected??points.length-1)?0:-1} role="button" aria-label={`${time(p.time)}: ${format(p.value,unit)} ${unit}, ${statusText(p.value)}`} onClick={()=>setSelected(i)} onFocus={()=>setSelected(i)} onKeyDown={e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();const n=Math.max(0,Math.min(points.length-1,i+(e.key==='ArrowLeft'?-1:1)));setSelected(n);(svg.current?.querySelectorAll('.point')[n] as SVGElement)?.focus();}if(e.key==='Escape')setSelected(null);}}/>)}</svg>
+ {!showHeart&&[0,.5,1].map(v=><text key={v} x={L+v*(W-L-R)} y={H-8} textAnchor={v===0?'start':v===1?'end':'middle'} fill="var(--muted)">{time(start+(end-start)*v)}</text>)}
+ {cursorX!=null&&<line className="chart-cursor" x1={cursorX} x2={cursorX} y1={T} y2={H-B}/>}
+ {points.map((p:any,i:number)=><circle key={p.time} cx={xp(p.time)} cy={yp(p.value)} r={Math.max(1.2,Math.min(compact?2.6:4.1,(W-L-R)/Math.max(points.length,1)/2.6))} className={'point '+category(p.value)+(selected===i||point===p?' active':'')} tabIndex={i===(selected??points.length-1)?0:-1} role="button" aria-label={`${time(p.time)}: ${format(p.value,unit)} ${unit}, ${statusText(p.value)}${showHeart?((h:any)=>h?`, Puls ${h.bpm} bpm`:'')(nearestHeartRate(heart||[],p.time)):''}`} onClick={()=>setSelected(i)} onFocus={()=>setSelected(i)} onKeyDown={e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();const n=Math.max(0,Math.min(points.length-1,i+(e.key==='ArrowLeft'?-1:1)));setSelected(n);(svg.current?.querySelectorAll('.point')[n] as SVGElement)?.focus();}if(e.key==='Escape')setSelected(null);}}/>)}</svg>
  {!points.length&&<div className="empty-chart">Keine Messungen in diesem Zeitraum</div>}
- <div className={'chart-selection '+(point?'visible':'')} aria-live="polite">{point?`${time(point.time)} · ${format(point.value,unit)} ${unit}`:'Messpunkt auswählen'}</div>
+ {showHeart&&<HeartPanel segments={segments} start={start} end={end} W={W} L={L} R={R} cursorX={cursorX} pulse={pulse} time={time}/>}
+ <div className={'chart-selection '+(cursorTime!=null?'visible':'')} aria-live="polite">{readout}</div>
+ </div>;
+}
+// Pulse as its own panel under the glucose chart: same time axis, own bpm scale (never a second y-axis).
+function HeartPanel({segments,start,end,W,L,R,cursorX,pulse,time}:any){
+ const H=104,T=12,B=26,all=segments.flat(),lo=all.length?Math.min(...all.map((h:any)=>h.bpm)):60,hi=all.length?Math.max(...all.map((h:any)=>h.bpm)):100;
+ const pad=Math.max(5,(20-(hi-lo))/2),min=Math.floor(lo-pad),max=Math.ceil(hi+pad);
+ const xp=(t:number)=>L+(t-start)/(end-start)*(W-L-R),yp=(v:number)=>T+(max-v)/(max-min)*(H-T-B);
+ const last=all.at(-1);
+ return <div className="heart-panel">
+  <div className="heart-head"><span className="eyebrow">PULS</span><span className="chart-label">bpm</span></div>
+  <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={all.length?`Pulsverlauf: ${all.length} Minutenwerte zwischen ${lo} und ${hi} bpm, zuletzt ${last.bpm} bpm um ${time(last.time)}.`:'Noch kein Pulsverlauf in diesem Zeitraum.'}>
+   <line x1={W-R} x2={W-R} y1={T} y2={H-B} stroke="var(--border)" strokeDasharray="3 5"/>
+   {all.length>0&&[hi,lo].filter((v,i,a)=>a.indexOf(v)===i).map(v=><text key={v} x={W-R+14} y={yp(v)+4} fill="var(--muted)">{v}</text>)}
+   {segments.map((seg:any[],i:number)=>seg.length>1?<path key={i} className="heart-line" d={seg.map((h:any,j:number)=>`${j?'L':'M'}${xp(h.time).toFixed(1)} ${yp(h.bpm).toFixed(1)}`).join(' ')}/>:<circle key={i} className="heart-dot" cx={xp(seg[0].time)} cy={yp(seg[0].bpm)} r="2.5"/>)}
+   {cursorX!=null&&<line className="chart-cursor" x1={cursorX} x2={cursorX} y1={T} y2={H-B}/>}
+   {cursorX!=null&&pulse&&<circle className="heart-marker" cx={xp(pulse.time)} cy={yp(pulse.bpm)} r="4"/>}
+   {[0,.5,1].map(v=><text key={v} x={L+v*(W-L-R)} y={H-8} textAnchor={v===0?'start':v===1?'end':'middle'} fill="var(--muted)">{time(start+(end-start)*v)}</text>)}
+  </svg>
+  {!all.length&&<div className="empty-chart small">Pulsverlauf erscheint, sobald die Uhr Werte sendet</div>}
  </div>;
 }
 function Value({state,now,small=false}:any){const c=state.config,f=freshness(state.feed.entries,now,c.staleMinutes),v=f.last?.value;return <>
@@ -138,7 +169,7 @@ function App(){const garmin=useGarminConnection();const [state,setState]=useStat
  return <><main className="dashboard"><header className="header" data-native={desktop}><div className="wordmark"><span className="brand">Haze</span></div><div className="header-right"><div className="clock">{new Date(now).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}<span>{new Date(now).toLocaleDateString('de-DE',{day:'2-digit',month:'short'})}</span></div><ThemeSwitch theme={c.theme} onChange={(theme:string)=>act('settings',{theme})}/><button className="icon-button" aria-label="Einstellungen" title="Einstellungen" onClick={()=>setSettings('connection')}><Settings size={20}/></button></div></header>
  <div className="toolbar"><span className={'source-tag '+(c.source==='demo'?'demo':'')}><i/>{c.source==='demo'?'DEMODATEN':'NIGHTSCOUT'}{preview?' · VORSCHAU':''}</span><div className="toolbar-actions"><label className="profile-select"><span>PROFIL</span><select aria-label="Profil wählen" value={c.profile} onChange={e=>act('profile',{name:e.target.value})}><option>Arbeit</option><option>Gaming</option></select></label><button className="button secondary compact-button" onClick={()=>act('overlay')}><PanelTop size={16}/>Widget<ArrowUpRight size={15}/></button></div></div>
  <section className="hero" aria-label="Aktueller Glukosewert"><Value state={state} now={now}/></section><ErrorNote state={state}/>
- <section className="chart-card"><div className="card-top"><div><span className="eyebrow">DEIN VERLAUF</span></div><span className="chart-label">{c.unit}</span></div><Chart entries={state.feed.entries} hours={hours} unit={c.unit} now={now}/></section>
+ <section className="chart-card"><div className="card-top"><div><span className="eyebrow">DEIN VERLAUF</span></div><span className="chart-label">{c.unit}</span></div><Chart entries={state.feed.entries} hours={hours} unit={c.unit} now={now} heart={state.garmin?.history} heartActive={!!state.garmin?.connected}/></section>
  <div className="range-picker segmented" role="group" aria-label="Zeitraum">{[3,6,12,24].map(h=><button key={h} aria-pressed={hours===h} className={hours===h?'active':''} onClick={()=>setHours(h)}>{h}<span> Std.</span></button>)}</div>
  <section className="stats"><article><div className="eyebrow">IM BEREICH · {hours} STD.</div><strong>{tir==null?'—':tir}<small>{tir!=null?' %':''}</small></strong><span>Anteil vorhandener Messpunkte</span></article><article><div className="eyebrow">LETZTE MESSUNG</div><strong className="stat-time">{f.last?new Date(f.last.time).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}):'—'}</strong><span>{f.stale?'Keine aktuelle Messung':`${f.minutes} Minuten alt`}</span></article><article><div className="eyebrow">DATENQUELLE</div><strong className="stat-source">{c.source==='demo'?'Demo':'Nightscout'}</strong><span>{c.source==='demo'?'Beispieldaten, keine echten Werte':state.feed.error?'Verbindung unterbrochen':'Nur lesender Zugriff'}</span></article></section>
  <section className="bottom-card"><div className="bottom-icon"><PanelTop size={24}/></div><div><h3>Dein Wert. Auch nebenbei.</h3><p>Ein kleines Fenster für Arbeit und Gaming.</p></div><button className="button primary" onClick={()=>act('overlay')}>Widget öffnen<ArrowUpRight size={18}/></button><button className="icon-button" title="Widget-Einstellungen" aria-label="Widget-Einstellungen" onClick={()=>setSettings('overlay')}><SlidersHorizontal size={20}/></button></section>
