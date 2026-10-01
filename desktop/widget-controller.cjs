@@ -28,7 +28,8 @@ module.exports=class WidgetController {
  area(){return this.g.boundary(this.d||this.display());}
  // Body geometry: this.b is the resting (target) body, this.c the current body centre.
  minimum(){return this.g.minimum(this.config().fontSize,this.layout,this.measured[this.config().fontSize]);}
- fit(){const m=this.minimum();this.b.width=Math.max(m.width,Math.min(2200,this.b.width));this.b.height=Math.max(m.height,Math.min(1800,this.b.height));}
+ // Auto size: the frame hugs the text (plus padding) and follows the font size.
+ fit(){const m=this.minimum();if(this.config().autoSize!==false){this.b.width=m.width;this.b.height=m.height;return;}this.b.width=Math.max(m.width,Math.min(2200,this.b.width));this.b.height=Math.max(m.height,Math.min(1800,this.b.height));}
  clamp(){const a=this.area();this.b.width=Math.min(this.b.width,a.width);this.b.height=Math.min(this.b.height,a.height);this.b.x=Math.max(a.x,Math.min(this.b.x,a.x+a.width-this.b.width));this.b.y=Math.max(a.y,Math.min(this.b.y,a.y+a.height-this.b.height));}
  target(){return {x:this.b.x+this.b.width/2,y:this.b.y+this.b.height/2};}
  along(e,p=this.c){return e==='top'||e==='bottom'?p.x:p.y;}
@@ -82,12 +83,14 @@ module.exports=class WidgetController {
  relayout(){const c=this.config(),centre=this.target();this.layout=this.g.orientation(c,this.b,this.layout,this.edge);this.fit();this.b.x=centre.x-this.b.width/2;this.b.y=centre.y-this.b.height/2;this.clamp();}
  // Gestures, driven by the renderer's pointer events and the OS cursor position.
  start(kind,edge){const c=this.config();if(c.locked||c.clickThrough)return;const p=this.screen.getCursorScreenPoint();
+  if(kind==='resize'&&c.autoSize!==false)return;
   if(kind==='resize'){this.cancel();this.c=this.target();this.v={x:0,y:0};this.gesture={kind,edge,cursor:p,start:{...this.b}};return;}
-  this.gesture={kind:'drag',offset:{x:p.x-this.c.x,y:p.y-this.c.y}};this.dragging=true;this.v={x:0,y:0};this.wake();}
+  this.gesture={kind:'drag',offset:{x:p.x-this.c.x,y:p.y-this.c.y},from:p,moved:false};this.dragging=true;this.v={x:0,y:0};this.wake();}
  move(){if(!this.gesture)return;const c=this.config(),s=this.gesture,p=this.screen.getCursorScreenPoint();
   if(s.kind==='resize'){const dx=p.x-s.cursor.x,dy=p.y-s.cursor.y,e=s.edge;let b={...s.start};if(e.includes('e'))b.width+=dx;if(e.includes('s'))b.height+=dy;if(e.includes('w')){b.x+=dx;b.width-=dx;}if(e.includes('n')){b.y+=dy;b.height-=dy;}
    this.b=b;this.layout=this.g.orientation(c,b,this.layout,this.edge);this.fit();if(e.includes('w'))this.b.x=s.start.x+s.start.width-this.b.width;if(e.includes('n'))this.b.y=s.start.y+s.start.height-this.b.height;
    if(this.edge)this.snapTarget();this.clamp();this.c=this.target();this.draw();return;}
+  if(!s.moved){if(Math.hypot(p.x-s.from.x,p.y-s.from.y)<3)return;s.moved=true;}
   const d=this.displayFor({x:p.x,y:p.y,width:1,height:1});if(d.id!==this.d.id){this.d=d;if(this.edge){this.edge=null;c.dock=null;}}
   const a=this.area(),w=this.b.width,h=this.b.height,now=this.clock();
   this.c={x:this.g.clamp(p.x-s.offset.x,a.x+w/2,a.x+a.width-w/2),y:this.g.clamp(p.y-s.offset.y,a.y+h/2,a.y+a.height-h/2)};this.b.x=this.c.x-w/2;this.b.y=this.c.y-h/2;this.v={x:0,y:0};
@@ -104,6 +107,8 @@ module.exports=class WidgetController {
  }
  end(){if(!this.gesture)return;const s=this.gesture;this.gesture=null;this.dragging=false;
   if(s.kind==='resize'){this.clamp();this.c=this.target();this.draw();this.record();return;}
+  // A plain click (or the first half of a double-click) must not bounce or re-dock the widget.
+  if(!s.moved){this.draw();this.wake();return;}
   const c=this.config();
   if(!this.edge&&c.snap&&this.mode()==='direct'){const best=this.nearestEdge();if(best)this.dockTo(best.e);}
   if(this.edge){c.dock={edge:this.edge,monitor:this.d.id};this.relayout();this.snapTarget();this.bounceV=-.6*this.fluid()/100;}

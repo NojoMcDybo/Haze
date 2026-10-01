@@ -1,8 +1,10 @@
 import React,{useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {arrows,format,category,freshness,widgetDelta} from '../shared/model.mjs';
-import {contour,padding,orientation} from '../shared/widget.mjs';
+import {contour,padding,orientation,minimum} from '../shared/widget.mjs';
+// The settings preview shows the real frame size: auto size from the font, otherwise the saved bounds.
+function previewSize(c:any){const layout=c.alignment==='vertical'?'vertical':'horizontal',m=minimum(c.fontSize,layout),b=c.autoSize===false&&c.bounds?c.bounds:m;return {width:Math.max(m.width,b.width),height:Math.max(m.height,b.height),maxWidth:'100%'};}
 export function Widget({state,act,now,embedded=false,taskbar=false}:any){
- const c=state.config,ref=useRef<HTMLElement>(null),gesture=useRef(false),[size,setSize]=useState({width:260,height:150}),[frame,setFrame]=useState(state.widgetFrame),[layout,setLayout]=useState('horizontal');
+ const c=state.config,ref=useRef<HTMLElement>(null),gesture=useRef(false),lastDown=useRef({t:0,x:0,y:0}),[size,setSize]=useState({width:260,height:150}),[frame,setFrame]=useState(state.widgetFrame),[layout,setLayout]=useState('horizontal');
  const f=freshness(state.feed.entries,now,c.staleMinutes),v=f.last?.value,change=widgetDelta(state.feed.entries,c.unit,now,c.staleMinutes);
  useLayoutEffect(()=>{const e=ref.current;if(!e)return;const ro=new ResizeObserver(([entry])=>{setSize({width:entry.contentRect.width,height:entry.contentRect.height});});ro.observe(e);return()=>ro.disconnect();},[]);
  useEffect(()=>{if(embedded||taskbar)return;setFrame(state.widgetFrame);return window.nebel?.onWidgetFrame(setFrame);},[embedded,taskbar]);
@@ -12,15 +14,18 @@ export function Widget({state,act,now,embedded=false,taskbar=false}:any){
  const active=frame&&!embedded&&!taskbar?frame:null,p=padding(size.width,size.height),shape=active||contour(size.width,size.height,null),body=active?.body||{left:p,top:p,width:size.width-2*p,height:size.height-2*p};
  const age=f.last?`${f.minutes} Min.${f.stale?' · veraltet':state.feed.error?' · offline':state.feed.future?' · Zeitfehler':''}`:'Keine Messung';
  const trend=f.stale?'':arrows[f.last?.trend]||'·';
- const start=(e:React.PointerEvent)=>{if(embedded||taskbar||c.locked||c.clickThrough||e.button!==0)return;e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);gesture.current=true;const edge=(e.target as HTMLElement).dataset.edge;act(edge?'resize-start':'drag-start',edge?{edge}:{});};
+ const start=(e:React.PointerEvent)=>{if(embedded||taskbar||c.clickThrough||e.button!==0)return;
+  // Double-click (also when locked) opens the app. Detected here because the drag captures the pointer.
+  const t=performance.now(),l=lastDown.current;if(t-l.t<450&&Math.hypot(e.screenX-l.x,e.screenY-l.y)<6){lastDown.current={t:0,x:0,y:0};e.preventDefault();act('dashboard');return;}lastDown.current={t,x:e.screenX,y:e.screenY};
+  if(c.locked)return;e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);gesture.current=true;const edge=(e.target as HTMLElement).dataset.edge;act(edge?'resize-start':'drag-start',edge?{edge}:{});};
  const end=()=>{if(gesture.current){gesture.current=false;act('gesture-end');}};
  if(taskbar)return <main className={'taskbar-reading '+(v==null?'':category(v))} aria-label="Anzeige an der Taskleiste"><strong>{format(v,c.unit)}</strong><span>{trend}</span><span className="taskbar-unit">{c.unit}</span><span className={'taskbar-time '+(f.stale?'warning':'')}>· {f.last?new Date(f.last.time).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}):'—'}{f.stale?' · veraltet':state.feed.error?' · offline':''}{c.source==='demo'?' · Demo':''}</span></main>;
- return <main ref={ref} className={`haze-widget ${c.surface} text-${['light','dark'].includes(c.widgetText)?c.widgetText:'auto'} ${state.highContrast?'high-contrast':''} ${embedded?'embedded':''} ${c.locked?'locked':''}`} style={{'--value-size':`${c.fontSize}px`,'--time-size':`${Math.max(11,c.fontSize*.22)}px`,'--glass-opacity':c.glassOpacity} as React.CSSProperties} onPointerDown={start} onPointerMove={()=>{if(gesture.current)act('gesture-move');}} onPointerUp={end} onLostPointerCapture={end}>
+ return <main ref={ref} className={`haze-widget ${c.surface} text-${['light','dark'].includes(c.widgetText)?c.widgetText:'auto'} ${state.highContrast?'high-contrast':''} ${embedded?'embedded':''} ${c.locked?'locked':''}`} style={{...(embedded?previewSize(c):{}),'--value-size':`${c.fontSize}px`,'--time-size':`${Math.max(11,c.fontSize*.22)}px`,'--glass-opacity':c.glassOpacity} as React.CSSProperties} onPointerDown={start} onPointerMove={()=>{if(gesture.current)act('gesture-move');}} onPointerUp={end} onLostPointerCapture={end}>
   <svg className="widget-surface" width={shape.width} height={shape.height} viewBox={`0 0 ${shape.width} ${shape.height}`} aria-hidden="true"><path d={shape.path} className="surface-base"/></svg>
   <div className={`widget-content ${active?.layout||layout} ${v==null?'':category(v)}`} style={{left:body.left,top:body.top,width:body.width,height:body.height}}>
    <div className="widget-number">{format(v,c.unit)}<span className="widget-delta-inline" aria-label={change?.description||'Änderung nicht verfügbar'}>({change?.text||'—'})</span></div><div className="widget-trend" aria-label={f.stale?'Trend veraltet':f.last?.trend?'Trend '+f.last.trend:'Trend unbekannt'}>{trend}</div>
    <div className="widget-meta"><span className="widget-unit-line"><span>{c.unit}{c.source==='demo'?' · Demo':''}</span></span><span className={f.stale?'warning':''} role="status">{age}</span></div>
   </div>
-  {!embedded&&!c.locked&&!c.clickThrough&&<div className="widget-handles" style={{left:body.left,top:body.top,width:body.width,height:body.height}}>{['n','s','e','w','ne','nw','se','sw'].map(edge=><div key={edge} data-edge={edge} className={'resize-edge '+edge}/>)}</div>}
+  {!embedded&&!c.locked&&!c.clickThrough&&c.autoSize===false&&<div className="widget-handles" style={{left:body.left,top:body.top,width:body.width,height:body.height}}>{['n','s','e','w','ne','nw','se','sw'].map(edge=><div key={edge} data-edge={edge} className={'resize-edge '+edge}/>)}</div>}
  </main>;
 }

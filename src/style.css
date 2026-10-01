@@ -57,3 +57,23 @@ html.overlay-document,html.overlay-document body,html.overlay-document #root{bac
 .haze-widget.glass.text-light .widget-number,.haze-widget.glass.text-light .widget-trend{text-shadow:0 1px 2px #000a,0 0 5px #0004}
 .haze-widget.glass.text-dark .widget-number,.haze-widget.glass.text-dark .widget-trend{text-shadow:0 1px 2px #fff9,0 0 5px #fff6}
 .haze-widget.glass.text-dark .widget-meta,.haze-widget.glass.text-dark .widget-delta-inline{text-shadow:0 1px 2px #fff8}
+/* Einstellungen → Widget: gruppiert, aufklappbar */
+.settings-group{border:1px solid var(--border);border-radius:16px;background:var(--card);margin:12px 0;overflow:hidden}
+.settings-group>summary{list-style:none;display:flex;align-items:baseline;gap:12px;padding:15px 18px;cursor:pointer;font-size:14px;font-weight:650;color:var(--text);user-select:none}
+.settings-group>summary::-webkit-details-marker{display:none}
+.settings-group>summary small{margin-left:auto;font-weight:500;font-size:11px;color:var(--muted);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.settings-group>summary:after{content:'';flex:none;width:7px;height:7px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:translateY(-2px) rotate(45deg);transition:transform .15s}
+.settings-group[open]>summary:after{transform:translateY(1px) rotate(-135deg)}
+.settings-group>summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:16px}
+.settings-group .group-body{padding:0 18px 8px;border-top:1px solid var(--border)}
+.settings-group .field{margin:16px 0}
+.settings-group .toggle-row:last-child{border-bottom:0}
+.settings-group .button.full{margin:14px 0 10px}
+.segmented.compact{width:100%}
+.segmented.compact button{flex:1;padding:8px 10px;font-family:inherit;font-size:12px;font-weight:550}
+.range-row{display:flex;align-items:center;gap:12px}.range-row input{flex:1}
+.link-button{font-size:12px;color:var(--accent);padding:4px 2px}.link-button:disabled{opacity:.4}
+.fine.tight{margin:6px 0 4px}
+.profile-card{display:flex;align-items:center;gap:16px;justify-content:space-between;margin:18px 0 4px;padding:16px 18px;border-radius:16px;background:var(--pill)}
+.profile-card h3{margin:0;font-size:15px}.profile-card .button{margin:0;flex:none}
+.widget-preview,.widget-preview:has(.vertical){height:auto;min-height:150px;padding:22px;overflow:hidden}

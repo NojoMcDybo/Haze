@@ -2,8 +2,8 @@
 export const edges=['top','right','bottom','left'];
 export const mix=(a,b,t)=>a+(b-a)*t;
 export const ease=t=>t*t*(3-2*t);
-export const widgetDefaults={fontSize:48,alignment:'auto',surface:'clear',nativeGlass:true,glassBlur:3,glassOpacity:.88,reduceMotion:false,dock:null,taskbarVisible:false,taskbarMonitor:null,overlayVisible:false,fluid:55,adhesion:103,detach:'fluid',widgetText:'auto',notch:true};
-export const profileKeys=['theme','locked','clickThrough','bounds','monitor','fontSize','alignment','surface','nativeGlass','glassBlur','glassOpacity','snap','dock','fluid','adhesion','detach','widgetText'];
+export const widgetDefaults={fontSize:48,alignment:'auto',surface:'clear',nativeGlass:true,glassBlur:3,glassOpacity:.88,reduceMotion:false,dock:null,taskbarVisible:false,taskbarMonitor:null,overlayVisible:false,fluid:55,adhesion:103,detach:'fluid',autoSize:true,widgetText:'auto',notch:true};
+export const profileKeys=['theme','locked','clickThrough','bounds','monitor','fontSize','alignment','surface','nativeGlass','glassBlur','glassOpacity','snap','dock','fluid','adhesion','detach','autoSize','widgetText'];
 export function migrate(saved,base){const c={...base,...widgetDefaults,...saved};c.schema=2;c.view='minimal';c.profiles=Object.fromEntries(['Arbeit','Gaming'].map(n=>[n,{...widgetDefaults,...base.profiles[n],...(saved.profiles?.[n]||{}),view:'minimal'}]));return c;}
 export function orientation(c,b,previous='horizontal',edge=null){if(c.alignment!=='auto')return c.alignment;if(edge)return ['left','right'].includes(edge)?'vertical':'horizontal';const ratio=b.width/b.height;return previous==='horizontal'?(ratio<.92?'vertical':'horizontal'):(ratio>1.18?'horizontal':'vertical');}
 export function padding(w,h){return Math.max(6,Math.min(22,Math.min(w,h)*.13));}

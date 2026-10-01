@@ -53,3 +53,6 @@ test('Ablösemodus Gesperrt: gleitet am Rand, reißt nie ab, löst per Befehl',(
  f.cursor({x:c0.x+ux*400+uy*60,y:c0.y+uy*400+ux*60});w.move();assert.equal(w.edge,edge);assert.ok(Math.abs(w.gapTo(edge))<.01,'stays on edge');
  const along=edge==='top'||edge==='bottom'?w.c.x-c0.x:w.c.y-c0.y;assert.ok(Math.abs(Math.abs(along)-60)<.01,'slides along');
  w.end();assert.equal(f.c.dock.edge,edge);w.detach();assert.equal(f.c.dock,null);w.cancel();}});
+test('Rahmen folgt der Schriftgröße (automatische Größe), manuell bleibt die eigene Größe',()=>{const f=fixture(null,{reduce:true}),w=f.w;const sizes=[];for(const font of [30,48,90]){f.c.fontSize=font;w.apply();sizes.push(w.b.width);assert.deepEqual([w.b.width,w.b.height],[g.minimum(font,w.layout).width,g.minimum(font,w.layout).height]);}assert.ok(sizes[0]<sizes[1]&&sizes[1]<sizes[2]);
+ const before=w.gesture;w.start('resize','se');assert.equal(w.gesture,before,'resize ignored with auto size');f.c.autoSize=false;f.c.bounds={x:800,y:400,width:600,height:300};w.apply();assert.equal(w.b.width,600);});
+test('Einfacher Klick auf das angedockte Widget federt nicht und löst nicht',()=>{const f=fixture('top'),w=f.w,c0={...w.c};f.cursor({x:c0.x+1,y:c0.y+1});w.start('drag');w.move();w.end();assert.equal(w.bounceV,0);assert.equal(f.c.dock.edge,'top');assert.deepEqual(w.c,c0);w.cancel();});
