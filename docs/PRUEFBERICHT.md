@@ -89,3 +89,15 @@ Bestanden:
 - Notch live: Aktivität `haze-bz` erscheint mit „→ −5 · vor 2 Min.“; nach „Beenden“ entfernt.
 
 Offen: echtes Ziehen mit der Maus an allen Kanten auf dem Zielrechner abnehmen (Gefühl von Flüssigkeit und Haftstrecke), Glas während Rocket League, Mixed-DPI beim Ziehen zwischen Monitoren. Das Widget fehlt mit aktivem Glas absichtlich in Screenshots.
+
+
+## Branch claude/notch-verlauf - 2. Oktober 2026: Verlauf und Doppelklick in der Notch
+
+Basis: `widget-lab-integration` (PR #1). Nur lokal, nicht gepusht.
+
+Bestanden:
+
+- `npm test`: 38 Tests, davon in `tests/notch.test.mjs` neu oder angepasst: Aktivität `haze:bg` mit Zahlenwert, Trend und Änderung als Zahl, Verlauf `chart` (70/180, 3.9/10 bei mmol/L, Punkte in der Einheit), nur die letzten 24 h (289 Punkte bei 5-Min-Takt), Trend aus Sensor oder nach Dexcom-Schwellen, veraltet ohne Trend und Änderung, einmaliges Abräumen der alten id `haze-bz`, Ereignis „open“ ruft das Dashboard (Altlast beim Start und Neustart der Notch lösen nichts aus).
+- TypeScript-Prüfung.
+
+Offen (nur auf dem echten Desktop prüfbar): Doppelklick in der Notch holt das Dashboard nach vorn — aus dem Tray, minimiert und hinter anderen Fenstern; Graph mit echten Nightscout-Werten.
