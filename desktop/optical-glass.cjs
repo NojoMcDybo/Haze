@@ -10,7 +10,8 @@ module.exports=class OpticalGlass {
   win.on('closed',()=>this.dispose());
  }
  report(active,message){if(this.status.active===active&&this.status.message===message)return;this.status={active,message};this.changed?.();}
- frame(bounds,shape){this.pending={bounds,shape};}
+ // Apply new geometry immediately (as the Widget Lab does in Render) so the glass never trails the shape.
+ frame(bounds,shape){this.pending={bounds,shape};this.tick();}
  stop(message){if(this.live){try{this.native.destroy();}catch{}this.live=false;}this.lastKey='';this.report(false,message);}
  fail(){this.stop('Glas vorübergehend nicht verfügbar; transparente Anzeige bleibt aktiv.');this.nextRetry=this.clock()+5000;}
  tick(){

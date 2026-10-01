@@ -42,13 +42,23 @@ module.exports=class WidgetController {
   const body={x:this.c.x-bw/2,y:this.c.y-bh/2,width:bw,height:bh},gap=this.edge?Math.max(0,this.gapTo(this.edge)):0;
   const shape=this.g.fluid(body,this.edge,this.anchor,gap,this.limit(),this.attach,this.g.fluidDefaults.radius),a=this.area(),bb=shape.bounds;
   const left=Math.floor(Math.max(a.x,bb.x-1)),top=Math.floor(Math.max(a.y,bb.y-1)),right=Math.ceil(Math.min(a.x+a.width,bb.x+bb.width+1)),bottom=Math.ceil(Math.min(a.y+a.height,bb.y+bb.height+1));
-  const bounds={x:left,y:top,width:Math.max(1,right-left),height:Math.max(1,bottom-top)},local=this.g.place(shape,left,top,bounds.width,bounds.height);
-  this.win.setBounds(bounds,false);
-  // Explicit OS hit region: transparent corners, the shoulders' outside and the gap pass through.
-  try{this.win.setShape(this.g.region(local.polygon,bounds.width,bounds.height));}catch(e){this.shapeError='Windows-Fensterkontur nicht verfügbar. Durchklicken aktiv; Widget über die Haupt-App zurücksetzen.';this.win.setIgnoreMouseEvents(true,{forward:true});}
+  const tight={x:left,y:top,width:Math.max(1,right-left),height:Math.max(1,bottom-top)};
+  // The window is a fixed stage over the work area of the current monitor; only its region follows
+  // the shape. Window geometry is applied by the OS immediately, drawing by the renderer a frame
+  // later. With a stationary window the two cannot drift apart (no clipped neck, no jumping text).
+  const moving=this.dragging||!!this.timer;
+  this.stage={x:Math.round(a.x),y:Math.round(a.y),width:Math.round(a.width),height:Math.round(a.height)};
+  const bounds=this.stage,local=this.g.place(shape,bounds.x,bounds.y,bounds.width,bounds.height),key=[bounds.x,bounds.y,bounds.width,bounds.height].join();
+  if(key!==this.boundsKey){this.win.setBounds(bounds,false);this.boundsKey=key;}
+  // OS region: full stage while dragging, a generous box while settling, the exact contour at rest
+  // (transparent corners, the shoulders' outside and the gap pass clicks through).
+  try{if(this.dragging){if(this.shapeKey!=='stage'){this.win.setShape([]);this.shapeKey='stage';}}
+  else if(moving){const m=80,x=Math.max(0,tight.x-m-bounds.x),y=Math.max(0,tight.y-m-bounds.y);this.win.setShape([{x,y,width:Math.min(bounds.width-x,tight.width+2*m),height:Math.min(bounds.height-y,tight.height+2*m)}]);this.shapeKey='settle';}else{const own=this.g.place(shape,tight.x,tight.y,tight.width,tight.height),dx=tight.x-bounds.x,dy=tight.y-bounds.y;this.win.setShape(this.g.region(own.polygon,tight.width,tight.height).map(r=>({...r,x:r.x+dx,y:r.y+dy})));this.shapeKey=key;}}catch(e){this.shapeError='Windows-Fensterkontur nicht verfügbar. Durchklicken aktiv; Widget über die Haupt-App zurücksetzen.';this.win.setIgnoreMouseEvents(true,{forward:true});}
   const p=this.g.padding(w,h);
-  this.frame={width:local.width,height:local.height,path:local.path,layout:this.layout,edge:this.edge,amount:this.edge?this.attach:0,body:{left:this.c.x-w/2-left+p,top:this.c.y-h/2-top+p,width:w-2*p,height:h-2*p},shapeError:this.shapeError};
-  this.win.webContents.send('widget-frame',this.frame);this.onFrame?.(bounds,local);
+  this.frame={width:local.width,height:local.height,path:local.path,layout:this.layout,edge:this.edge,amount:this.edge?this.attach:0,body:{left:this.c.x-w/2-bounds.x+p,top:this.c.y-h/2-bounds.y+p,width:w-2*p,height:h-2*p},shapeError:this.shapeError};
+  this.win.webContents.send('widget-frame',this.frame);
+  // The native glass always follows the tight shape, synchronously from here (no renderer lag).
+  this.onFrame?.(tight,this.g.place(shape,tight.x,tight.y,tight.width,tight.height));
  }
  // Physics (Haze.cs Tick). Returns true while anything is still moving.
  step(dt){
@@ -60,7 +70,7 @@ module.exports=class WidgetController {
   if(!moving){if(!this.dragging){this.c=t;this.v={x:0,y:0};}this.bounce=this.bounceV=0;this.attach=1;}
   return moving;
  }
- tick(){this.timer=null;const now=this.clock(),dt=Math.min(.033,Math.max(0,(now-this.last)/1000));this.last=now;const moving=this.step(dt);this.draw();if(moving)this.timer=setTimeout(()=>this.tick(),16);}
+ tick(){const now=this.clock(),dt=Math.min(.033,Math.max(0,(now-this.last)/1000));this.last=now;const moving=this.step(dt);this.timer=moving?setTimeout(()=>this.tick(),16):null;this.draw();}
  wake(){if(this.timer||this.win.isDestroyed())return;this.last=this.clock();if(this.reduced()){this.step(0);this.draw();return;}this.timer=setTimeout(()=>this.tick(),16);}
  record(){const c=this.config();c.bounds=Object.fromEntries(Object.entries(this.b).map(([k,v])=>[k,Math.round(v)]));c.monitor=this.d.id;
   if(this.edge){const a=this.area(),horizontal=['top','bottom'].includes(this.edge);c.dock={edge:this.edge,monitor:this.d.id,along:horizontal?(this.b.x-a.x)/Math.max(1,a.width-this.b.width):(this.b.y-a.y)/Math.max(1,a.height-this.b.height)};}else c.dock=null;this.save();}
@@ -79,7 +89,7 @@ module.exports=class WidgetController {
   // Peel: the neck tears once the body is pulled further than the adhesion distance.
   if(this.edge&&this.gapTo(this.edge)>this.limit()){this.edge=null;c.dock=null;this.bounceV=1.8*this.fluid()/100;this.releaseUntil=now+RELEASE_COOLDOWN;}
   // Attach: close to a free edge (never an edge shared with another monitor) a neck forms.
-  if(!this.edge&&c.snap&&now>this.releaseUntil){const best=this.g.edges.map(e=>({e,gap:this.gapTo(e)})).filter(v=>v.gap<this.g.fluidDefaults.zone&&!this.displays().some(o=>this.g.sharedEdge(this.d,o,v.e,this.b))).sort((x,y)=>x.gap-y.gap)[0];
+  if(!this.edge&&c.snap&&now>this.releaseUntil){const best=this.g.edges.map(e=>({e,gap:this.gapTo(e)})).filter(v=>v.gap<Math.min(this.g.fluidDefaults.zone,this.limit()*.8)&&!this.displays().some(o=>this.g.sharedEdge(this.d,o,v.e,this.b))).sort((x,y)=>x.gap-y.gap)[0];
    if(best){this.edge=best.e;this.anchor=this.along(best.e);this.attach=this.reduced()?1:.1;}}
   this.draw();if(!this.reduced())this.wake();
  }
