@@ -1,12 +1,12 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {parseHeartRate,liveHeartRate} from '../shared/garmin.mjs';
 
-export function GarminPanel({state}:any){
+export function useGarminConnection(){
  const device=useRef<any>(null),characteristic=useRef<any>(null),generation=useRef(0);
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[now,setNow]=useState(Date.now());
  const send=(payload:any)=>window.nebel?.garmin('update',payload);
  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>{clearInterval(timer);generation.current++;device.current?.gatt?.disconnect();};},[]);
- const g=state.garmin||{},live=liveHeartRate(g,now),supported=!!window.nebel&&!!(navigator as any).bluetooth;
+ const supported=!!window.nebel&&!!(navigator as any).bluetooth;
  const disconnect=()=>{generation.current++;device.current?.gatt?.disconnect();device.current=null;characteristic.current=null;setBusy(false);send({kind:'status',connected:false});setMessage('Verbindung getrennt.');};
  async function connect(){
   const run=++generation.current;setBusy(true);setMessage('An der Uhr „Herzfrequenz senden“ starten. Suche läuft …');
@@ -35,6 +35,12 @@ export function GarminPanel({state}:any){
    setMessage(e.name==='NotFoundError'?'Kein Gerät ausgewählt. Bluetooth am PC und „Herzfrequenz senden“ an der Uhr prüfen.':`Verbindung fehlgeschlagen: ${e.message||e.name}`);
   }finally{if(run===generation.current)setBusy(false);}
  }
+ return {busy,message,now,supported,connect,disconnect};
+}
+export function GarminPanel({state,connection}:any){
+ const {busy,message,supported,connect,disconnect}=connection;
+ // A measurement may arrive between timer ticks; compare against render time.
+ const now=Date.now(),g=state.garmin||{},live=liveHeartRate(g,now);
  return <section className="garmin-card" aria-label="Garmin verbinden">
   <div className="card-top"><div><span className="eyebrow">GARMIN · DIREKTVERBINDUNG</span><h3>Deine Uhr, live am PC</h3></div><strong className="garmin-pulse">{live?g.reading.bpm:'—'} <small>bpm</small></strong></div>
   <p className="muted">Forerunner 265: UP halten → Gesundheit und Wellness → Herzfrequenz am Handgelenk → Herzfrequenz senden → START. Danach hier verbinden und deine Uhr auswählen.</p>
