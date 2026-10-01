@@ -45,3 +45,11 @@ test('Fenster bleibt eine feste Bühne; die Region folgt der Kontur',()=>{const 
  w.end();settle(w);w.draw();assert.deepEqual(f.win.bounds,area,'window stays');const r=shapes.at(-1);assert.ok(r.length>0);const xs=r.map(q=>q.x),ys=r.map(q=>q.y);assert.ok(Math.max(...r.map(q=>q.x+q.width))-Math.min(...xs)<area.width/2,'region hugs shape');w.cancel();});
 test('Kurze Haftstrecke: kein Abreißen-Andocken-Flattern',()=>{const f=fixture('top',{adhesion:35,fluid:0}),w=f.w,c0={...w.c};f.cursor(c0);w.start('drag');let flips=0,last=w.edge;for(let i=1;i<=60;i++){f.time(50);f.cursor({x:c0.x,y:c0.y+i*.5});w.move();if(w.edge!==last){flips++;last=w.edge;}}assert.ok(flips<=1,'flips '+flips);w.cancel();});
 test('Textfeld liegt auf der Bühne und in Ruhe an derselben Bildschirmstelle',()=>{const f=fixture(null),w=f.w,c0={...w.c};const abs=()=>{const fr=f.frames.at(-1),b=f.win.bounds;return [Math.round(b.x+fr.body.left),Math.round(b.y+fr.body.top)];};const rest=abs();f.cursor(c0);w.start('drag');w.move();assert.deepEqual(abs(),rest);w.cancel();});
+test('Ablösemodus Direkt: löst sofort ohne Hals, dockt erst beim Loslassen',()=>{for(const edge of g.edges){const f=fixture(edge),w=f.w,[ux,uy]=out[edge],c0={...w.c};f.c.detach='direct';f.cursor(c0);w.start('drag');
+ f.cursor({x:c0.x+ux*8,y:c0.y+uy*8});w.move();assert.equal(w.edge,null,edge+' leaves at once');f.time(400);
+ f.cursor({x:c0.x+ux*5,y:c0.y+uy*5});w.move();assert.equal(w.edge,null,'no neck while dragging');
+ w.end();assert.equal(f.c.dock?.edge,edge,'snaps on release');settle(w);assert.ok(Math.abs(w.gapTo(edge))<.01);w.cancel();}});
+test('Ablösemodus Gesperrt: gleitet am Rand, reißt nie ab, löst per Befehl',()=>{for(const edge of g.edges){const f=fixture(edge),w=f.w,[ux,uy]=out[edge],c0={...w.c};f.c.detach='locked';f.cursor(c0);w.start('drag');
+ f.cursor({x:c0.x+ux*400+uy*60,y:c0.y+uy*400+ux*60});w.move();assert.equal(w.edge,edge);assert.ok(Math.abs(w.gapTo(edge))<.01,'stays on edge');
+ const along=edge==='top'||edge==='bottom'?w.c.x-c0.x:w.c.y-c0.y;assert.ok(Math.abs(Math.abs(along)-60)<.01,'slides along');
+ w.end();assert.equal(f.c.dock.edge,edge);w.detach();assert.equal(f.c.dock,null);w.cancel();}});

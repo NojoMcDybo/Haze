@@ -16,6 +16,11 @@ module.exports=class WidgetController {
  // Settings
  fluid(){const v=this.config().fluid;return Number.isFinite(v)?this.g.clamp(v,0,100):55;}
  limit(){const v=this.config().adhesion;return this.g.adhesionLimit(Number.isFinite(v)?v:103,this.fluid());}
+ // Detach mode: 'fluid' (neck stretches up to the adhesion distance), 'direct' (leaves the edge at once,
+ // snaps on release) or 'locked' (slides along the edge, released only via "Vom Rand lösen").
+ mode(){const m=this.config().detach;return ['fluid','direct','locked'].includes(m)?m:'fluid';}
+ nearestEdge(){const zone=this.mode()==='fluid'?Math.min(this.g.fluidDefaults.zone,this.limit()*.8):this.g.fluidDefaults.zone;return this.g.edges.map(e=>({e,gap:this.gapTo(e)})).filter(v=>v.gap<zone&&!this.displays().some(o=>this.g.sharedEdge(this.d,o,v.e,this.b))).sort((x,y)=>x.gap-y.gap)[0]||null;}
+ dockTo(e){this.edge=e;this.anchor=this.along(e);this.attach=this.reduced()?1:.1;}
  reduced(){return !!(this.config().reduceMotion||this.systemReduced);}
  // Displays
  displayFor(rect){const ds=this.displays();return ds.find(d=>d.id===this.screen.getDisplayMatching(rect).id)||ds[0];}
@@ -86,16 +91,21 @@ module.exports=class WidgetController {
   const d=this.displayFor({x:p.x,y:p.y,width:1,height:1});if(d.id!==this.d.id){this.d=d;if(this.edge){this.edge=null;c.dock=null;}}
   const a=this.area(),w=this.b.width,h=this.b.height,now=this.clock();
   this.c={x:this.g.clamp(p.x-s.offset.x,a.x+w/2,a.x+a.width-w/2),y:this.g.clamp(p.y-s.offset.y,a.y+h/2,a.y+a.height-h/2)};this.b.x=this.c.x-w/2;this.b.y=this.c.y-h/2;this.v={x:0,y:0};
+  const mode=this.mode();
+  if(this.edge&&mode==='locked'){// Slide along the edge only; the perpendicular axis stays on the edge.
+   const t=this.g.dockTarget(this.b,this.d,this.edge);this.b.x=t.x;this.b.y=t.y;this.c=this.target();}
+  else if(this.edge&&mode==='direct'&&this.gapTo(this.edge)>4){this.edge=null;c.dock=null;this.bounceV=.6*this.fluid()/100;}
   // Peel: the neck tears once the body is pulled further than the adhesion distance.
-  if(this.edge&&this.gapTo(this.edge)>this.limit()){this.edge=null;c.dock=null;this.bounceV=1.8*this.fluid()/100;this.releaseUntil=now+RELEASE_COOLDOWN;}
+  else if(this.edge&&this.gapTo(this.edge)>this.limit()){this.edge=null;c.dock=null;this.bounceV=1.8*this.fluid()/100;this.releaseUntil=now+RELEASE_COOLDOWN;}
   // Attach: close to a free edge (never an edge shared with another monitor) a neck forms.
-  if(!this.edge&&c.snap&&now>this.releaseUntil){const best=this.g.edges.map(e=>({e,gap:this.gapTo(e)})).filter(v=>v.gap<Math.min(this.g.fluidDefaults.zone,this.limit()*.8)&&!this.displays().some(o=>this.g.sharedEdge(this.d,o,v.e,this.b))).sort((x,y)=>x.gap-y.gap)[0];
-   if(best){this.edge=best.e;this.anchor=this.along(best.e);this.attach=this.reduced()?1:.1;}}
+  // In direct mode nothing attaches while dragging; the edge is taken on release.
+  if(!this.edge&&c.snap&&mode!=='direct'&&now>this.releaseUntil){const best=this.nearestEdge();if(best)this.dockTo(best.e);}
   this.draw();if(!this.reduced())this.wake();
  }
  end(){if(!this.gesture)return;const s=this.gesture;this.gesture=null;this.dragging=false;
   if(s.kind==='resize'){this.clamp();this.c=this.target();this.draw();this.record();return;}
   const c=this.config();
+  if(!this.edge&&c.snap&&this.mode()==='direct'){const best=this.nearestEdge();if(best)this.dockTo(best.e);}
   if(this.edge){c.dock={edge:this.edge,monitor:this.d.id};this.relayout();this.snapTarget();this.bounceV=-.6*this.fluid()/100;}
   else{c.dock=null;this.relayout();}
   this.record();this.wake();
