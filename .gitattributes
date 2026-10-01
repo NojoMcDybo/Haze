@@ -1,0 +1,8 @@
+# Einheitliche Zeilenenden auf allen PCs (verhindert CRLF/LF-Rauschen in Diffs)
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.nsi text eol=crlf
+*.png binary
+*.ico binary
+*.node binary
+*.exe binary
