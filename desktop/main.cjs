@@ -4,6 +4,8 @@ const WidgetController=require('./widget-controller.cjs');
 const OpticalGlass=require('./optical-glass.cjs');
 const keepVisible=require('./keep-visible.cjs');
 const {NotchBridge}=require('./notch-bridge.cjs');
+const Garmin=require('./garmin.cjs');
+const garmin=new Garmin(()=>{if(config)broadcast();});
 // Preserve the 1.0 storage identity, including DPAPI secrets, despite the new product name.
 app.setPath('userData',path.join(app.getPath('appData'),'nebel-glucose'));
 app.setAppUserModelId('local.nebel.glucose');
@@ -23,7 +25,7 @@ function syncTaskbar(){if(!config.taskbarVisible){taskbar?.hide();return;}if(!ta
 function titleTheme(){if(!dashboard||dashboard.isDestroyed())return;const dark=config.theme==='dark'||config.theme==='system'&&nativeTheme.shouldUseDarkColors;dashboard.setTitleBarOverlay({color:dark?'#0e1414':'#edf1f1',symbolColor:dark?'#e8efee':'#101616',height:54});}
 function persist(){fs.mkdirSync(path.dirname(configPath),{recursive:true});fs.writeFileSync(configPath+'.tmp',JSON.stringify(config,null,2));fs.renameSync(configPath+'.tmp',configPath);}
 function publicConfig(){const {secret,...safe}=config;return {...safe,hasToken:!!secret};}
-function state(){return {config:publicConfig(),feed,systemDark:nativeTheme.shouldUseDarkColors,version:app.getVersion(),desktop:true,shortcutError,webPort,widgetFrame:controller?.frame,glassStatus:optical?.status,highContrast:nativeTheme.shouldUseHighContrastColors,displays:displays().map(d=>({id:d.id,label:d.label||'Monitor '+d.id})),overlayVisible:!!overlay?.isVisible(),update:{configured:false,message:'Noch keine vertrauenswürdige Veröffentlichungsquelle eingerichtet. Updates werden nicht automatisch heruntergeladen.'}};}
+function state(){return {config:publicConfig(),garmin:garmin.state,feed,systemDark:nativeTheme.shouldUseDarkColors,version:app.getVersion(),desktop:true,shortcutError,webPort,widgetFrame:controller?.frame,glassStatus:optical?.status,highContrast:nativeTheme.shouldUseHighContrastColors,displays:displays().map(d=>({id:d.id,label:d.label||'Monitor '+d.id})),overlayVisible:!!overlay?.isVisible(),update:{configured:false,message:'Noch keine vertrauenswürdige Veröffentlichungsquelle eingerichtet. Updates werden nicht automatisch heruntergeladen.'}};}
 function broadcast(){notch?.update(feed,config);const s=state();for(const w of [dashboard,overlay,taskbar])if(w&&!w.isDestroyed())w.webContents.send('state',s);for(const res of events)res.write(`data: ${JSON.stringify(s)}\n\n`);}
 function token(){if(!config.secret)return '';try{return safeStorage.decryptString(Buffer.from(config.secret,'base64'));}catch{throw Error('Lesetoken kann mit diesem Windows-Konto nicht entschlüsselt werden. Bitte neu eingeben.');}}
 async function refresh(){if(polling)return;polling=true;const current=generation;try{const d=config.source==='demo'?provider.demoProvider():await provider.nightscout(config.url,token());if(current!==generation)return;feed={...d,error:null,kind:null,checkedAt:Date.now()};}catch(e){if(current===generation)feed={...feed,error:e.message,kind:e.kind||'credentials',checkedAt:Date.now()};}finally{polling=false;broadcast();if(current!==generation)refresh();}}
@@ -31,9 +33,9 @@ function areas(){const p=screen.getPrimaryDisplay();return [p,...screen.getAllDi
 function safeBounds(b){return model.clampBounds(b,areas(),config.view==='history'?{width:260,height:300}:{width:230,height:190});}
 function secureWindow(w){w.webContents.setWindowOpenHandler(()=>({action:'deny'}));w.webContents.on('will-navigate',(e,url)=>{if(!url.startsWith('file://'))e.preventDefault();});}
 function openDashboard(settings=false){if(!dashboard||dashboard.isDestroyed()){
- dashboard=new BrowserWindow({width:1100,height:900,minWidth:400,minHeight:620,show:false,title:'Haze',titleBarStyle:'hidden',titleBarOverlay:{color:'#0e1414',symbolColor:'#e8efee',height:54},backgroundColor:'#0E1414',autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+ dashboard=new BrowserWindow({width:1100,height:900,minWidth:400,minHeight:620,show:false,title:'Haze',titleBarStyle:'hidden',titleBarOverlay:{color:'#0e1414',symbolColor:'#e8efee',height:54},backgroundColor:'#0E1414',autoHideMenuBar:true,webPreferences:{backgroundThrottling:false,preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
  titleTheme();
- secureWindow(dashboard);dashboard.loadFile(path.join(__dirname,'../dist/index.html'),{hash:settings?'settings':''});dashboard.once('ready-to-show',()=>dashboard.show());dashboard.on('close',e=>{if(!quitting){e.preventDefault();dashboard.hide();}});
+ secureWindow(dashboard);garmin.attach(dashboard);dashboard.loadFile(path.join(__dirname,'../dist/index.html'),{hash:settings?'settings':''});dashboard.once('ready-to-show',()=>dashboard.show());dashboard.on('close',e=>{if(!quitting){e.preventDefault();dashboard.hide();}});
  }else{if(settings)dashboard.webContents.send('open-settings');if(dashboard.isMinimized())dashboard.restore();if(dashboard.webContents.isLoading())dashboard.once('did-finish-load',()=>{dashboard.show();dashboard.focus();});else{dashboard.show();dashboard.focus();}}}
 function openOverlay(){config.overlayVisible=true;if(!overlay||overlay.isDestroyed()){
  overlay=new BrowserWindow({width:250,height:140,frame:false,transparent:true,hasShadow:false,roundedCorners:false,thickFrame:false,resizable:false,maximizable:false,minimizable:false,focusable:false,show:false,skipTaskbar:true,alwaysOnTop:true,title:'Haze · Widget',webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,backgroundThrottling:false}});
@@ -102,6 +104,7 @@ if(!app.requestSingleInstanceLock())app.quit();else{
  model=await import('../shared/model.mjs');widget=await import('../shared/widget.mjs');provider=await import('../shared/provider.mjs');configPath=path.join(app.getPath('userData'),'settings.json');let saved={};try{saved=JSON.parse(fs.readFileSync(configPath,'utf8'));}catch{}config=widget.migrate(saved,model.defaults());
  if(testMode){config=widget.migrate({},model.defaults());config.configured=true;webPort=17835;}
  try{registerShortcut(config.shortcut);}catch(e){shortcutError=e.message;config.clickThrough=false;}
+ ipcMain.handle('garmin',(e,type,p={})=>{if(e.sender!==dashboard?.webContents)throw Error('Nur im Dashboard verfügbar');if(type==='choose')garmin.choose(p.id);else if(type==='update')garmin.update(p);else throw Error('Unbekannte Aktion');return {ok:true};});
  ipcMain.handle('state',e=>{if(![dashboard?.webContents,overlay?.webContents,taskbar?.webContents].includes(e.sender))throw Error('Unbekanntes Fenster');return state();});
  ipcMain.handle('action',async(e,t,p)=>{if(![dashboard?.webContents,overlay?.webContents,taskbar?.webContents].includes(e.sender))throw Error('Unbekanntes Fenster');try{return await action(t,p);}catch(err){return {error:err.message};}});
  const icon=nativeImage.createFromPath(path.join(__dirname,'icon.png'));

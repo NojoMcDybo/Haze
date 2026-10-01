@@ -93,3 +93,4 @@ html:has(.backdrop){overflow:hidden}
 .profile-card{display:flex;align-items:center;gap:16px;justify-content:space-between;margin:18px 0 4px;padding:16px 18px;border-radius:16px;background:var(--pill)}
 .profile-card h3{margin:0;font-size:15px}.profile-card .button{margin:0;flex:none}
 .widget-preview,.widget-preview:has(.vertical){height:auto;min-height:150px;padding:22px;overflow:hidden}
+.garmin-card{margin:24px 0;padding:24px;border:1px solid var(--border, #8884);border-radius:24px;background:var(--card, #8881)}.garmin-card h3{margin:8px 0}.garmin-pulse{font-size:36px;white-space:nowrap}.garmin-pulse small{font-size:14px}.garmin-devices{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}.garmin-card p{line-height:1.55}.garmin-card .toolbar-actions{flex-wrap:wrap}

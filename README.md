@@ -96,3 +96,14 @@ Details zur Integration, lokaler Hintergrundverarbeitung und Grenzen: [Farbloses
 ## Vordergrund und Spiele
 
 Das Widget ist nicht fokussierbar und wird ohne Aktivierung regelmäßig nach vorne gesetzt. Für Spiele den randlosen Fenstermodus verwenden; exklusives Vollbild wird nicht zuverlässig unterstützt.
+
+## Garmin Forerunner 265 – direkter Live-Puls (1.2.2)
+
+1. Bluetooth am Windows-PC aktivieren.
+2. Uhr: UP halten → Gesundheit und Wellness → Herzfrequenz am Handgelenk → Herzfrequenz senden → START.
+3. Unter **Einstellungen → Garmin** auf **Uhr verbinden** klicken und die eigene Uhr auswählen.
+4. Nach dem ersten gültigen Paket erscheinen Puls und Empfangsalter im Dashboard sowie ein Herzsymbol mit Puls im Widget.
+
+Die Uhr muss weiter senden und in Reichweite bleiben. Nach einem App-Neustart erneut verbinden. Das Dashboard darf über X ausgeblendet werden; Haze muss im Infobereich weiterlaufen. Nach 15 Sekunden ohne neue Messung wird kein Live-Puls mehr angezeigt. Optional vom Sensor gesendete RR-Intervalle und Energie werden separat angezeigt; sie werden nicht erfunden oder als Garmin-HRV/Body-Battery interpretiert. Es werden keine Garmin-Kontodaten benötigt und keine Pulswerte auf die Festplatte geschrieben.
+
+Stress, Body Battery, Schlaf und Schritte sind über den Standard-Bluetooth-Herzfrequenzdienst nicht verfügbar. Garmin-Connect-Import ist noch nicht implementiert. Die lokale Browseransicht zeigt empfangene Werte, die Bluetooth-Verbindung wird ausschließlich im Desktop-Dashboard hergestellt.
