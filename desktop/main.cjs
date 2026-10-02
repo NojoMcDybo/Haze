@@ -114,7 +114,9 @@ if(!app.requestSingleInstanceLock())app.quit();else{
  const updateDisplays=()=>{if(controller){controller.apply();controller.record();}placeTaskbar();probeTaskbars();broadcast();};
  screen.on('display-removed',updateDisplays);screen.on('display-added',updateDisplays);screen.on('display-metrics-changed',updateDisplays);powerMonitor.on('resume',()=>{optical?.suspend(false);updateDisplays();refresh();});
  visibilityTimer=setInterval(()=>keepVisible([overlay,taskbar]),1000);
- if(!testMode&&!webTest)notch=new NotchBridge({model,open:app.isPackaged?process.execPath:undefined});
+ // Doppelklick auf den Graphen in der Notch -> Dashboard nach vorn (auch aus dem Tray oder minimiert).
+ // Die Notch erlaubt diesem Prozess vorher AllowSetForegroundWindow, darum darf focus() hier wirklich nach vorn.
+ if(!testMode&&!webTest){notch=new NotchBridge({model,open:app.isPackaged?process.execPath:undefined});notch.listen(()=>openDashboard());}
  startWeb();refresh();timer=setInterval(()=>{if(feed.error||!feed.checkedAt||Date.now()-feed.checkedAt>=60000)refresh();notch?.update(feed,config);},5000);
  if(!webTest){if(config.overlayOnly&&config.configured&&autoStarted)openOverlay();else openDashboard();if(config.overlayVisible||testMode)openOverlay();syncTaskbar();probeTaskbars();if(app.isPackaged&&config.autoStart)app.setLoginItemSettings({name:'Nebel',openAtLogin:true,path:process.execPath,args:['--autostart']});}
  });
