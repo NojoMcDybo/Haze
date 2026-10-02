@@ -42,7 +42,7 @@ const HR_ID='haze:hr',HR_TTL=15,HR_FRESH=10000,HR_KEEP=5000,HR_COLOR='#FF5A6E';
 function heartIcon(){return 'data:image/svg+xml;base64,'+Buffer.from(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 20.6S4 15.8 4 10.2A4.4 4.4 0 0 1 12 7.7a4.4 4.4 0 0 1 8 2.5c0 5.6-8 10.4-8 10.4z' fill='${HR_COLOR}'/></svg>`).toString('base64');}
 // Pure: Garmin state -> Notch pulse activity, or null when there is no live reading.
 function pulseActivity(garmin,now=Date.now(),open){
- const r=garmin?.reading;if(!garmin?.connected||!r||!Number.isInteger(r.bpm)||now-r.at>HR_FRESH||r.contact===false)return null;
+ const r=garmin?.reading;if(!garmin?.connected||!r||!Number.isInteger(r.bpm)||!Number.isFinite(r.at)||r.bpm<1||r.bpm>300||now-r.at<0||now-r.at>HR_FRESH||r.contact===false)return null;
  const a={id:HR_ID,app:'Haze',title:'Puls',subtitle:(garmin.name||'Garmin')+' · live',value:r.bpm,unit:'bpm',pulse:r.bpm,color:HR_COLOR,icon:heartIcon(),priority:1,ttl:HR_TTL,pid:process.pid};
  if(open)a.open=open;return a;
 }

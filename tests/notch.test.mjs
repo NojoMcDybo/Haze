@@ -66,3 +66,7 @@ test('Notch-Bridge Puls: sendet bei neuem Wert, sonst höchstens alle 5 s, entfe
  b.pulse({connected:false,reading:null},config,now+8000);const del=n.calls.at(-1);assert.equal(del.method,'DELETE');assert.equal(del.path,'/activity/haze:hr');assert.equal(b.pulseActive,false);
  const count=n.calls.length;b.pulse({connected:false,reading:null},config,now+9000);assert.equal(n.calls.length,count); // nicht doppelt löschen
  b.pulse(g(130,now+10000),{...config,notch:false},now+10000);assert.equal(n.calls.length,count);});
+
+test('Notch rejects future timestamps and invalid pulses instead of rendering them',()=>{
+ for(const reading of [{bpm:70,at:now+1},{bpm:301,at:now},{bpm:0,at:now},{bpm:70,at:NaN}])assert.equal(pulseActivity({connected:true,reading},now),null);
+});
