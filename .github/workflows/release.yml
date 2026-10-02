@@ -47,4 +47,5 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             gh release create $env:TAG --target $env:GITHUB_SHA --title "Haze $($env:TAG.TrimStart('v'))" --notes "Windows-Installer (x64, NSIS), gebaut aus main.`n`nSHA-256: ``$hash``"
           }
-          gh release upload $env:TAG $exe.FullName --clobber
+          # latest.yml + .blockmap: daraus liest electron-updater Version, Dateiname und SHA-512
+          gh release upload $env:TAG $exe.FullName "$($exe.FullName).blockmap" release/latest.yml --clobber

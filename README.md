@@ -67,7 +67,11 @@ Die Webansicht ist ausschließlich an Loopback gebunden. API-Endpunkte verlangen
 
 Die installierte Version wird angezeigt. Mangels fester vertrauenswürdiger Veröffentlichungsquelle meldet die Updateansicht ausdrücklich, dass keine Onlineprüfung möglich ist. Automatischer Download, Signaturprüfung und In-App-Installation einer neuen veröffentlichten Version sind daher **noch nicht eingerichtet**. Keine vorgetäuschte Erfolgsmeldung, kein erzwungener Neustart.
 
-Für ein späteres manuelles Update Haze im Infobereich beenden und den neuen vertrauenswürdigen Installer ausführen. Der Installer überschreibt das Programm und lässt Benutzereinstellungen und verschlüsselte Zugangsdaten bestehen. Upgrade über eine echte spätere Version ist noch zu testen.
+**Updates:** Ab 1.3.1 sieht Haze beim Start und alle 6 Stunden in den [Releases](https://github.com/NojoMcDybo/Haze/releases) nach. Gibt es eine neue Version, erscheint im Dashboard ein Hinweis mit **Installieren** (auch unter Einstellungen › App). Geladen wird nur nach Klick; die Datei wird gegen die SHA-512-Summe aus `latest.yml` geprüft, dann schließt Haze kurz, installiert still und startet neu. Einstellungen und verschlüsselte Zugangsdaten bleiben erhalten. Die Installer sind nicht code-signiert: Updates sind so vertrauenswürdig wie das GitHub-Konto, das sie veröffentlicht.
+
+Version 1.3.0 und älter einmal von Hand aktualisieren: Haze im Infobereich beenden und den neuen Installer ausführen.
+
+Neue Version veröffentlichen: `version` in `package.json` anheben, per PR nach `main`, dann Tag `v<version>` auf `main` pushen. Der Release-Workflow baut den Installer und lädt ihn mit `latest.yml` hoch.
 
 ## Quellcode und Build
 

@@ -1,6 +1,6 @@
 {
   "name": "nebel-glucose",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "private": true,
   "description": "Haze – Nightscout-Dashboard und Windows-Widget",
   "author": "Personal",
@@ -14,18 +14,19 @@
     "package": "npm run build && electron-builder --win nsis --x64"
   },
   "dependencies": {
+    "electron-updater": "^6.8.9",
+    "lucide-react": "^0.468.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "lucide-react": "^0.468.0"
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
-    "typescript": "^5.9.0",
-    "vite": "^6.3.0",
     "electron": "44.4.3",
     "electron-builder": "26.15.3",
-    "playwright": "^1.55.0"
+    "playwright": "^1.55.0",
+    "typescript": "^5.9.0",
+    "vite": "^6.3.0"
   },
   "build": {
     "appId": "local.nebel.glucose",
@@ -58,6 +59,14 @@
       {
         "from": "desktop/native-glass/haze-glass.node",
         "to": "haze-glass.node"
+      }
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "NojoMcDybo",
+        "repo": "Haze",
+        "releaseType": "release"
       }
     ]
   }
