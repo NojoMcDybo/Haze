@@ -102,6 +102,7 @@ if(!app.requestSingleInstanceLock())app.quit();else{
  app.on('second-instance',(_event,argv)=>{if(!argv.includes('--autostart'))openDashboard();});
  app.whenReady().then(async()=>{
  model=await import('../shared/model.mjs');widget=await import('../shared/widget.mjs');provider=await import('../shared/provider.mjs');configPath=path.join(app.getPath('userData'),'settings.json');let saved={};try{saved=JSON.parse(fs.readFileSync(configPath,'utf8'));}catch{}config=widget.migrate(saved,model.defaults());
+ await garmin.load(path.join(app.getPath('userData'),'heart-rate.json'));
  if(testMode){config=widget.migrate({},model.defaults());config.configured=true;webPort=17835;}
  try{registerShortcut(config.shortcut);}catch(e){shortcutError=e.message;config.clickThrough=false;}
  ipcMain.handle('garmin',(e,type,p={})=>{if(e.sender!==dashboard?.webContents)throw Error('Nur im Dashboard verfügbar');if(type==='choose')garmin.choose(p.id);else if(type==='update')garmin.update(p);else throw Error('Unbekannte Aktion');return {ok:true};});
@@ -123,7 +124,7 @@ if(!app.requestSingleInstanceLock())app.quit();else{
  app.on('window-all-closed',()=>{});
  // Remove the value from the Notch before exiting (bounded wait; ttl cleans up otherwise).
  app.on('will-quit',e=>{if(notch?.active&&!notchClosed){e.preventDefault();notchClosed=true;Promise.race([notch.remove(),new Promise(r=>setTimeout(r,800))]).finally(()=>app.exit(0));}});
- app.on('before-quit',()=>{quitting=true;optical?.dispose();controller?.cancel();taskbarChild?.kill();clearInterval(timer);clearInterval(visibilityTimer);globalShortcut.unregisterAll();for(const r of events)r.end();server?.close();tray?.destroy();});
+ app.on('before-quit',()=>{quitting=true;garmin.save();optical?.dispose();controller?.cancel();taskbarChild?.kill();clearInterval(timer);clearInterval(visibilityTimer);globalShortcut.unregisterAll();for(const r of events)r.end();server?.close();tray?.destroy();});
 }
 
 
