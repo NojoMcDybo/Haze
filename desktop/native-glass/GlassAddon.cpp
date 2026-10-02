@@ -109,7 +109,9 @@ float4 Lens(float4 pos:SV_Position):SV_Target {
 }
 )SHADER";
 
-struct Params {float sourceW,sourceH,offsetX,offsetY,panelW,panelH,sigma,axis,strength,padding;};
+// D3D11 rejects constant buffers whose size is not a multiple of 16 bytes (E_INVALIDARG).
+struct Params {float sourceW,sourceH,offsetX,offsetY,panelW,panelH,sigma,axis,strength,padding,padding2,padding3;};
+static_assert(sizeof(Params)%16==0,"constant buffer size must be a multiple of 16 bytes");
 struct Texture {ComPtr<ID3D11Texture2D> tex;ComPtr<ID3D11ShaderResourceView> srv;ComPtr<ID3D11RenderTargetView> rtv;};
 struct PointF {float x,y;};
 struct Glass;

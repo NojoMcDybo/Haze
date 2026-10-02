@@ -52,4 +52,45 @@ html.overlay-document,html.overlay-document body,html.overlay-document #root{bac
 :root[data-theme=light] .haze-widget.glass{--glass-tint:#fafafa}
 .haze-widget.high-contrast .surface-base{fill:var(--card);fill-opacity:1}
 
+/* Haze 1.3 UI: Platz unter der Titelleiste, einheitliche Scrollleisten, abgerundetes Einstellungsfenster */
+.dashboard{padding-top:0}
+.header{position:sticky;top:0;z-index:7;background:var(--bg);padding:58px 0 22px;-webkit-app-region:drag}
+.header .header-right,.header button,.header .theme-switch{-webkit-app-region:no-drag}
+html:has(.backdrop){overflow:hidden}
+::-webkit-scrollbar{width:12px;height:12px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:12px;border:3px solid transparent;background-clip:content-box;min-height:40px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted);background-clip:content-box;border:3px solid transparent}
+::-webkit-scrollbar-corner{background:transparent}
+.backdrop{padding:62px 14px 14px}
+.settings-panel{width:min(520px,100%);border:1px solid var(--border);border-radius:26px;overflow:hidden;box-shadow:0 24px 80px #0006}
+.panel-body{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable}
+.setup{border-radius:28px}
+.backdrop:has(.setup){padding:24px;align-items:center;justify-content:center}
+/* Schriftfarbe unabhängig vom App-Theme (aus dem Widget Lab). Spezifität über :is() ≥ Theme-Regeln. */
+:is(:root,:root[data-theme=light],:root[data-theme=dark]) .haze-widget.text-light{color:var(--text);--text:#e8efef;--muted:#c2d0d1;--high:#edbc56;--low:#ff7971;--card:#13272b;--glass-tint:#161616}
+:is(:root,:root[data-theme=light],:root[data-theme=dark]) .haze-widget.text-dark{color:var(--text);--text:#162325;--muted:#43585c;--high:#885e00;--low:#bd302b;--card:#f2f7f6;--glass-tint:#fafafa}
+.haze-widget.glass.text-light .widget-number,.haze-widget.glass.text-light .widget-trend{text-shadow:0 1px 2px #000a,0 0 5px #0004}
+.haze-widget.glass.text-dark .widget-number,.haze-widget.glass.text-dark .widget-trend{text-shadow:0 1px 2px #fff9,0 0 5px #fff6}
+.haze-widget.glass.text-dark .widget-meta,.haze-widget.glass.text-dark .widget-delta-inline{text-shadow:0 1px 2px #fff8}
+/* Einstellungen → Widget: gruppiert, aufklappbar */
+.settings-group{border:1px solid var(--border);border-radius:16px;background:var(--card);margin:12px 0;overflow:hidden}
+.settings-group>summary{list-style:none;display:flex;align-items:baseline;gap:12px;padding:15px 18px;cursor:pointer;font-size:14px;font-weight:650;color:var(--text);user-select:none}
+.settings-group>summary::-webkit-details-marker{display:none}
+.settings-group>summary small{margin-left:auto;font-weight:500;font-size:11px;color:var(--muted);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.settings-group>summary:after{content:'';flex:none;width:7px;height:7px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:translateY(-2px) rotate(45deg);transition:transform .15s}
+.settings-group[open]>summary:after{transform:translateY(1px) rotate(-135deg)}
+.settings-group>summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:16px}
+.settings-group .group-body{padding:0 18px 8px;border-top:1px solid var(--border)}
+.settings-group .field{margin:16px 0}
+.settings-group .toggle-row:last-child{border-bottom:0}
+.settings-group .button.full{margin:14px 0 10px}
+.segmented.compact{width:100%}
+.segmented.compact button{flex:1;padding:8px 10px;font-family:inherit;font-size:12px;font-weight:550}
+.range-row{display:flex;align-items:center;gap:12px}.range-row input{flex:1}
+.link-button{font-size:12px;color:var(--accent);padding:4px 2px}.link-button:disabled{opacity:.4}
+.fine.tight{margin:6px 0 4px}
+.profile-card{display:flex;align-items:center;gap:16px;justify-content:space-between;margin:18px 0 4px;padding:16px 18px;border-radius:16px;background:var(--pill)}
+.profile-card h3{margin:0;font-size:15px}.profile-card .button{margin:0;flex:none}
+.widget-preview,.widget-preview:has(.vertical){height:auto;min-height:150px;padding:22px;overflow:hidden}
 .garmin-card{margin:24px 0;padding:24px;border:1px solid var(--border, #8884);border-radius:24px;background:var(--card, #8881)}.garmin-card h3{margin:8px 0}.garmin-pulse{font-size:36px;white-space:nowrap}.garmin-pulse small{font-size:14px}.garmin-devices{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}.garmin-card p{line-height:1.55}.garmin-card .toolbar-actions{flex-wrap:wrap}
