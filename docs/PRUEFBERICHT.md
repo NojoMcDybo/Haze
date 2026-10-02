@@ -112,3 +112,14 @@ Bestanden:
 - `npm test`: 44 Tests, neu in `tests/notch.test.mjs`: Aktivität aus dem Garmin-Zustand (live, veraltet, ohne Kontakt, Kontakt unbekannt, Klickziel), Senden bei neuem Wert und Wachhalten alle 5 s, Entfernen ohne Messung (nicht doppelt), nichts bei abgeschalteter Notch.
 
 Offen (nur auf dem echten Desktop prüfbar): Puls einer echten Garmin erscheint in der Notch und schlägt im Takt; verschwindet nach Ablegen der Uhr bzw. Trennen.
+
+## Garmin/Notch – Verbindungsreparatur (2026-10-02)
+
+- Ein Verbindungsbesitzer im Dashboard; alte Listener werden beim Abbruch/Trennen entfernt. GATT-Aufbau endet nach 20 Sekunden mit einer erneuten Verbindungsmöglichkeit. Spät abgeschlossene alte Versuche dürfen keine Messwerte veröffentlichen.
+- Bluetooth-Verfügbarkeit wird vor der Suche geprüft. Keine automatische zweite Kopplung durch Notch: Haze bleibt Pulsquelle, Notch erhält weiterhin nur `haze:hr` über localhost.
+- Notch verwirft auch zukünftige/ungültige Puls-Zeitstempel. Keine Glättung oder Manipulation echter hoher Pulswerte.
+- Optionaler Standard-Bluetooth-Akkustand, sofern von der Uhr angeboten, mit Kennzeichnung „beim Verbinden gelesen“. Er ist kein Body-Battery-Wert.
+- Tests: Abbruch, Timeout, erneutes Verbinden ohne doppelte Listener, unveränderte Sequenz 72/75/68, nicht verfügbarer Adapter, bestehende Notch-Verträge.
+- Offen: echter Vergleich Forerunner-Anzeige vs. Haze vs. Notch; physisches Wiederverbinden und Verfügbarkeit des Akkudienstes. Ein Softwaretest ersetzt diesen Gerätevergleich nicht.
+
+Weitere Garmin-Statistiken: Der Herzfrequenzdienst enthält keine Schritte, Body Battery, Stress- oder Schlafdaten. Garmin Health API bietet synchronisierte Daten nach Freigabe (https://developer.garmin.com/gc-developer-program/health-api/). Connect IQ SensorHistory erlaubt geräteabhängige Verlaufsdaten auf der Uhr (https://developer.garmin.com/connect-iq/api-docs/Toybox/SensorHistory.html); dafür wäre eine eigene Uhren-App mit separatem Transport nötig. Es wurde keine ungeprüfte Cloud-Anmeldung oder zweite konkurrierende BLE-Verbindung ergänzt.

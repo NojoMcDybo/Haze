@@ -25,7 +25,10 @@ module.exports=class Garmin {
   update(p){
     if(p.kind==='status'){
       this.state.connected=p.connected===true;this.state.name=String(p.name||'').slice(0,100);
-      this.state.reading=null;
+      this.state.reading=null;this.state.battery=null;
+    }else if(p.kind==='battery'){
+      if(!this.state.connected||!Number.isInteger(p.percent)||p.percent<0||p.percent>100)throw Error('Ungültiger Akkustand');
+      this.state.battery={percent:p.percent,at:Date.now()};
     }else if(p.kind==='reading'){
       if(!this.state.connected||!Number.isInteger(p.bpm)||p.bpm<1||p.bpm>300)throw Error('Ungültige Pulsmessung');
       const at=Date.now();if(heart){heart.recordHeartRate(this.history,p.bpm,at,typeof p.contact==='boolean'?p.contact:null);this.dirty=true;this.publish();}
