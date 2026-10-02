@@ -101,3 +101,14 @@ Bestanden:
 - TypeScript-Prüfung.
 
 Offen (nur auf dem echten Desktop prüfbar): Doppelklick in der Notch holt das Dashboard nach vorn — aus dem Tray, minimiert und hinter anderen Fenstern; Graph mit echten Nightscout-Werten.
+
+
+## Branch claude/notch-puls - 2. Oktober 2026: Garmin-Puls in der Notch
+
+Haze schickt den Live-Puls der gekoppelten Garmin als eigene Notch-Aktivität `haze:hr` (Wert, `pulse` für den Herzschlag im Takt, ttl 15 s, Priorität 1 vor Helio). Nur echte Live-Werte: verbunden, höchstens 10 s alt, Hautkontakt nicht als verloren gemeldet. Gesendet wird bei neuem Wert, sonst höchstens alle 5 s; ohne Messung oder bei `notch: false` wird der Eintrag entfernt, beim Beenden ebenfalls.
+
+Bestanden:
+
+- `npm test`: 44 Tests, neu in `tests/notch.test.mjs`: Aktivität aus dem Garmin-Zustand (live, veraltet, ohne Kontakt, Kontakt unbekannt, Klickziel), Senden bei neuem Wert und Wachhalten alle 5 s, Entfernen ohne Messung (nicht doppelt), nichts bei abgeschalteter Notch.
+
+Offen (nur auf dem echten Desktop prüfbar): Puls einer echten Garmin erscheint in der Notch und schlägt im Takt; verschwindet nach Ablegen der Uhr bzw. Trennen.
