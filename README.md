@@ -107,3 +107,7 @@ Das Widget ist nicht fokussierbar und wird ohne Aktivierung regelmäßig nach vo
 Die Uhr muss weiter senden und in Reichweite bleiben. Nach einem App-Neustart erneut verbinden. Das Dashboard darf über X ausgeblendet werden; Haze muss im Infobereich weiterlaufen. Nach 15 Sekunden ohne neue Messung wird kein Live-Puls mehr angezeigt. Optional vom Sensor gesendete RR-Intervalle und Energie werden separat angezeigt; sie werden nicht erfunden oder als Garmin-HRV/Body-Battery interpretiert. Es werden keine Garmin-Kontodaten benötigt und keine Pulswerte auf die Festplatte geschrieben.
 
 Stress, Body Battery, Schlaf und Schritte sind über den Standard-Bluetooth-Herzfrequenzdienst nicht verfügbar. Garmin-Connect-Import ist noch nicht implementiert. Die lokale Browseransicht zeigt empfangene Werte, die Bluetooth-Verbindung wird ausschließlich im Desktop-Dashboard hergestellt.
+
+## Lizenz
+
+MIT, siehe [LICENSE](LICENSE). Der Hinweis „kein Medizinprodukt“ oben gilt unabhängig davon.
