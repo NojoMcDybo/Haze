@@ -1,6 +1,7 @@
 const {app,BrowserWindow,ipcMain,Tray,Menu,nativeImage,nativeTheme,safeStorage,globalShortcut,screen,powerMonitor,shell}=require('electron');
 const fs=require('fs'),path=require('path'),http=require('http'),crypto=require('crypto');
 const WidgetController=require('./widget-controller.cjs');
+const {createUpdater}=require('./updater.cjs');let updater;
 const OpticalGlass=require('./optical-glass.cjs');
 const keepVisible=require('./keep-visible.cjs');
 const {NotchBridge}=require('./notch-bridge.cjs');
@@ -25,7 +26,7 @@ function syncTaskbar(){if(!config.taskbarVisible){taskbar?.hide();return;}if(!ta
 function titleTheme(){if(!dashboard||dashboard.isDestroyed())return;const dark=config.theme==='dark'||config.theme==='system'&&nativeTheme.shouldUseDarkColors;dashboard.setTitleBarOverlay({color:dark?'#0e1414':'#edf1f1',symbolColor:dark?'#e8efee':'#101616',height:54});}
 function persist(){fs.mkdirSync(path.dirname(configPath),{recursive:true});fs.writeFileSync(configPath+'.tmp',JSON.stringify(config,null,2));fs.renameSync(configPath+'.tmp',configPath);}
 function publicConfig(){const {secret,...safe}=config;return {...safe,hasToken:!!secret};}
-function state(){return {config:publicConfig(),garmin:garmin.state,feed,systemDark:nativeTheme.shouldUseDarkColors,version:app.getVersion(),desktop:true,shortcutError,webPort,widgetFrame:controller?.frame,glassStatus:optical?.status,highContrast:nativeTheme.shouldUseHighContrastColors,displays:displays().map(d=>({id:d.id,label:d.label||'Monitor '+d.id})),overlayVisible:!!overlay?.isVisible(),update:{configured:false,message:'Noch keine vertrauenswürdige Veröffentlichungsquelle eingerichtet. Updates werden nicht automatisch heruntergeladen.'}};}
+function state(){return {config:publicConfig(),garmin:garmin.state,feed,systemDark:nativeTheme.shouldUseDarkColors,version:app.getVersion(),desktop:true,shortcutError,webPort,widgetFrame:controller?.frame,glassStatus:optical?.status,highContrast:nativeTheme.shouldUseHighContrastColors,displays:displays().map(d=>({id:d.id,label:d.label||'Monitor '+d.id})),overlayVisible:!!overlay?.isVisible(),update:updater?updater.state():{configured:false,status:'dev',message:''}};}
 function broadcast(){notch?.update(feed,config);notch?.pulse(garmin.state,config);const s=state();for(const w of [dashboard,overlay,taskbar])if(w&&!w.isDestroyed())w.webContents.send('state',s);for(const res of events)res.write(`data: ${JSON.stringify(s)}\n\n`);}
 function token(){if(!config.secret)return '';try{return safeStorage.decryptString(Buffer.from(config.secret,'base64'));}catch{throw Error('Lesetoken kann mit diesem Windows-Konto nicht entschlüsselt werden. Bitte neu eingeben.');}}
 async function refresh(){if(polling)return;polling=true;const current=generation;try{const d=config.source==='demo'?provider.demoProvider():await provider.nightscout(config.url,token());if(current!==generation)return;feed={...d,error:null,kind:null,checkedAt:Date.now()};}catch(e){if(current===generation)feed={...feed,error:e.message,kind:e.kind||'credentials',checkedAt:Date.now()};}finally{polling=false;broadcast();if(current!==generation)refresh();}}
@@ -82,7 +83,8 @@ async function action(type,p={}){switch(type){
  case 'widget-motion':if(controller)controller.systemReduced=!!p.reduced;return {ok:true};
  case 'undock':controller?.detach();break;
  case 'quit':quitting=true;app.quit();break;
- case 'updates':return state().update;
+ case 'updates':return await updater.check();
+ case 'install-update':return await updater.install();
  default:throw Error('Unbekannte Aktion');
  }broadcast();trayMenu();return {ok:true};}
 function startWeb(){const root=path.resolve(__dirname,'../dist');server=http.createServer(async(req,res)=>{
@@ -101,7 +103,7 @@ function startWeb(){const root=path.resolve(__dirname,'../dist');server=http.cre
 if(!app.requestSingleInstanceLock())app.quit();else{
  app.on('second-instance',(_event,argv)=>{if(!argv.includes('--autostart'))openDashboard();});
  app.whenReady().then(async()=>{
- model=await import('../shared/model.mjs');widget=await import('../shared/widget.mjs');provider=await import('../shared/provider.mjs');configPath=path.join(app.getPath('userData'),'settings.json');let saved={};try{saved=JSON.parse(fs.readFileSync(configPath,'utf8'));}catch{}config=widget.migrate(saved,model.defaults());
+ model=await import('../shared/model.mjs');widget=await import('../shared/widget.mjs');provider=await import('../shared/provider.mjs');configPath=path.join(app.getPath('userData'),'settings.json');updater=createUpdater({updater:app.isPackaged?require('electron-updater').autoUpdater:null,version:app.getVersion(),packaged:app.isPackaged,onChange:()=>broadcast(),beforeInstall:()=>{quitting=true;}});updater.start();let saved={};try{saved=JSON.parse(fs.readFileSync(configPath,'utf8'));}catch{}config=widget.migrate(saved,model.defaults());
  await garmin.load(path.join(app.getPath('userData'),'heart-rate.json'));
  if(testMode){config=widget.migrate({},model.defaults());config.configured=true;webPort=17835;}
  try{registerShortcut(config.shortcut);}catch(e){shortcutError=e.message;config.clickThrough=false;}
