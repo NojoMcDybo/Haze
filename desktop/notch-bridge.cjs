@@ -34,9 +34,30 @@ function activity(model,feed,config,now=Date.now(),open){
  if(open)a.open=open;
  return {activity:a,level,stale};
 }
+// Garmin pulse as its own activity: the Notch prefers it over other pulse sources (priority 1 > Helio 0)
+// and moves it up in its compact view above a heart-rate threshold. Only live readings: connected,
+// skin contact not reported as lost, at most 10 s old. ttl 15 s, so it disappears on its own when
+// the watch stops sending; re-sent at least every 5 s while it is live.
+const HR_ID='haze:hr',HR_TTL=15,HR_FRESH=10000,HR_KEEP=5000,HR_COLOR='#FF5A6E';
+function heartIcon(){return 'data:image/svg+xml;base64,'+Buffer.from(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 20.6S4 15.8 4 10.2A4.4 4.4 0 0 1 12 7.7a4.4 4.4 0 0 1 8 2.5c0 5.6-8 10.4-8 10.4z' fill='${HR_COLOR}'/></svg>`).toString('base64');}
+// Pure: Garmin state -> Notch pulse activity, or null when there is no live reading.
+function pulseActivity(garmin,now=Date.now(),open){
+ const r=garmin?.reading;if(!garmin?.connected||!r||!Number.isInteger(r.bpm)||now-r.at>HR_FRESH||r.contact===false)return null;
+ const a={id:HR_ID,app:'Haze',title:'Puls',subtitle:(garmin.name||'Garmin')+' · live',value:r.bpm,unit:'bpm',pulse:r.bpm,color:HR_COLOR,icon:heartIcon(),priority:1,ttl:HR_TTL,pid:process.pid};
+ if(open)a.open=open;return a;
+}
 class NotchBridge {
- constructor({model,request=http.request,open,setInterval:si=setInterval,clearInterval:ci=clearInterval,setTimeout:st=setTimeout,clearTimeout:ct=clearTimeout}){Object.assign(this,{model,request,open,si,ci,st,ct});this.last=null;this.lastLevel=0;this.refresh=null;this.poll=null;this.seen=-1;this.cleaned=false;}
+ constructor({model,request=http.request,open,setInterval:si=setInterval,clearInterval:ci=clearInterval,setTimeout:st=setTimeout,clearTimeout:ct=clearTimeout}){Object.assign(this,{model,request,open,si,ci,st,ct});this.last=null;this.lastLevel=0;this.refresh=null;this.poll=null;this.seen=-1;this.cleaned=false;this.hrLast=null;this.hrAt=0;}
  get active(){return this.last!==null;}
+ get pulseActive(){return this.hrLast!==null;}
+ // Called on every state broadcast; sends only when the value changes or every HR_KEEP while live.
+ pulse(garmin,config,now=Date.now()){
+  const a=config?.notch===false?null:pulseActivity(garmin,now,this.open);
+  if(!a){this.removePulse();return;}
+  if(this.hrLast===a.value&&now-this.hrAt<HR_KEEP)return;
+  this.hrLast=a.value;this.hrAt=now;this.send('POST','/activity',a);
+ }
+ removePulse(){if(this.hrLast===null)return Promise.resolve(false);this.hrLast=null;this.hrAt=0;return this.send('DELETE','/activity/'+HR_ID);}
  update(feed,config,now=Date.now()){
   if(config.notch===false){if(this.active)this.remove();return;}
   const r=activity(this.model,feed,config,now,this.open);if(!r){if(this.active)this.remove();return;}
@@ -75,4 +96,4 @@ class NotchBridge {
   }catch{resolve(false);}
  });}
 }
-module.exports={NotchBridge,activity,trend,ID};
+module.exports={NotchBridge,activity,pulseActivity,trend,ID,HR_ID};

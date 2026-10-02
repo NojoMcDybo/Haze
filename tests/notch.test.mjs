@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {createRequire} from 'node:module';import * as model from '../shared/model.mjs';
-const require=createRequire(import.meta.url),{NotchBridge,activity,trend}=require('../desktop/notch-bridge.cjs');
+const require=createRequire(import.meta.url),{NotchBridge,activity,pulseActivity,trend}=require('../desktop/notch-bridge.cjs');
 const now=10_000_000,feed=(v,prev=v,age=3)=>({entries:[{time:now-(age+5)*60000,value:prev,trend:null},{time:now-age*60000,value:v,trend:'Flat'}],error:null});
 const config={unit:'mg/dL',staleMinutes:10,source:'nightscout',notch:true};
 function bridge(events=[]){const calls=[];const request=(opts,cb)=>{const call={method:opts.method,path:opts.path,body:''};calls.push(call);const listeners={};return {on(e,f){listeners[e]=f;return this},write(d){call.body+=d},end(){
@@ -47,3 +47,22 @@ test('Doppelklick in der Notch: "open"-Ereignis ruft onOpen, alte Ereignisse und
  events=[...events,{seq:2,activity:'haze:bg',action:'open',ts:5}];await n.poll();assert.equal(opened,2);
  n.b.stop();assert.equal(n.timeout,null);});
 test('Notch nicht erreichbar: kein Fehler, kein Absturz',async()=>{const b=new NotchBridge({model,request:()=>{throw Error('ECONNREFUSED')},setInterval:()=>1,clearInterval:()=>{}});b.update(feed(112,115),config,now);assert.equal(await b.send('POST','/activity',{}),false);assert.equal(await b.get('/events'),null);});
+test('Garmin-Puls an die Notch: nur live, mit pulse-Feld, Vorrang vor Helio',()=>{
+ const g=(over={})=>({connected:true,name:'Forerunner 265',reading:{bpm:128,at:now-2000,contact:true},...over});
+ const a=pulseActivity(g(),now);assert.equal(a.id,'haze:hr');assert.equal(a.app,'Haze');assert.equal(a.value,128);assert.equal(a.pulse,128);assert.equal(a.unit,'bpm');
+ assert.equal(a.subtitle,'Forerunner 265 · live');assert.equal(a.ttl,15);assert.equal(a.priority,1);assert.ok(a.icon.startsWith('data:image/svg+xml;base64,'));
+ assert.equal(pulseActivity(g({connected:false}),now),null);
+ assert.equal(pulseActivity(g({reading:null}),now),null);
+ assert.equal(pulseActivity(g({reading:{bpm:128,at:now-11000,contact:true}}),now),null);   // älter als 10 s
+ assert.equal(pulseActivity(g({reading:{bpm:128,at:now-1000,contact:false}}),now),null);   // kein Hautkontakt
+ assert.equal(pulseActivity(g({reading:{bpm:128,at:now-1000,contact:null}}),now).value,128); // Kontakt unbekannt: zeigen
+ assert.equal(pulseActivity(g(),now,'C:/Haze.exe').open,'C:/Haze.exe');});
+test('Notch-Bridge Puls: sendet bei neuem Wert, sonst höchstens alle 5 s, entfernt sich ohne Messung',()=>{const n=bridge(),b=n.b;
+ const g=(bpm,at=now)=>({connected:true,name:'',reading:{bpm,at,contact:true}});
+ b.pulse(g(120),config,now);b.pulse(g(120),config,now+1000);assert.equal(posts(n.calls).length,1);assert.equal(JSON.parse(posts(n.calls)[0].body).subtitle,'Garmin · live');
+ b.pulse(g(121,now+2000),config,now+2000);assert.equal(posts(n.calls).length,2);
+ b.pulse(g(121,now+6000),config,now+7100);assert.equal(posts(n.calls).length,3);                 // Wach halten
+ assert.equal(b.pulseActive,true);
+ b.pulse({connected:false,reading:null},config,now+8000);const del=n.calls.at(-1);assert.equal(del.method,'DELETE');assert.equal(del.path,'/activity/haze:hr');assert.equal(b.pulseActive,false);
+ const count=n.calls.length;b.pulse({connected:false,reading:null},config,now+9000);assert.equal(n.calls.length,count); // nicht doppelt löschen
+ b.pulse(g(130,now+10000),{...config,notch:false},now+10000);assert.equal(n.calls.length,count);});

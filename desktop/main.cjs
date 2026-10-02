@@ -26,7 +26,7 @@ function titleTheme(){if(!dashboard||dashboard.isDestroyed())return;const dark=c
 function persist(){fs.mkdirSync(path.dirname(configPath),{recursive:true});fs.writeFileSync(configPath+'.tmp',JSON.stringify(config,null,2));fs.renameSync(configPath+'.tmp',configPath);}
 function publicConfig(){const {secret,...safe}=config;return {...safe,hasToken:!!secret};}
 function state(){return {config:publicConfig(),garmin:garmin.state,feed,systemDark:nativeTheme.shouldUseDarkColors,version:app.getVersion(),desktop:true,shortcutError,webPort,widgetFrame:controller?.frame,glassStatus:optical?.status,highContrast:nativeTheme.shouldUseHighContrastColors,displays:displays().map(d=>({id:d.id,label:d.label||'Monitor '+d.id})),overlayVisible:!!overlay?.isVisible(),update:{configured:false,message:'Noch keine vertrauenswürdige Veröffentlichungsquelle eingerichtet. Updates werden nicht automatisch heruntergeladen.'}};}
-function broadcast(){notch?.update(feed,config);const s=state();for(const w of [dashboard,overlay,taskbar])if(w&&!w.isDestroyed())w.webContents.send('state',s);for(const res of events)res.write(`data: ${JSON.stringify(s)}\n\n`);}
+function broadcast(){notch?.update(feed,config);notch?.pulse(garmin.state,config);const s=state();for(const w of [dashboard,overlay,taskbar])if(w&&!w.isDestroyed())w.webContents.send('state',s);for(const res of events)res.write(`data: ${JSON.stringify(s)}\n\n`);}
 function token(){if(!config.secret)return '';try{return safeStorage.decryptString(Buffer.from(config.secret,'base64'));}catch{throw Error('Lesetoken kann mit diesem Windows-Konto nicht entschlüsselt werden. Bitte neu eingeben.');}}
 async function refresh(){if(polling)return;polling=true;const current=generation;try{const d=config.source==='demo'?provider.demoProvider():await provider.nightscout(config.url,token());if(current!==generation)return;feed={...d,error:null,kind:null,checkedAt:Date.now()};}catch(e){if(current===generation)feed={...feed,error:e.message,kind:e.kind||'credentials',checkedAt:Date.now()};}finally{polling=false;broadcast();if(current!==generation)refresh();}}
 function areas(){const p=screen.getPrimaryDisplay();return [p,...screen.getAllDisplays().filter(d=>d.id!==p.id)].map(d=>d.workArea);}
@@ -118,12 +118,12 @@ if(!app.requestSingleInstanceLock())app.quit();else{
  // Doppelklick auf den Graphen in der Notch -> Dashboard nach vorn (auch aus dem Tray oder minimiert).
  // Die Notch erlaubt diesem Prozess vorher AllowSetForegroundWindow, darum darf focus() hier wirklich nach vorn.
  if(!testMode&&!webTest){notch=new NotchBridge({model,open:app.isPackaged?process.execPath:undefined});notch.listen(()=>openDashboard());}
- startWeb();refresh();timer=setInterval(()=>{if(feed.error||!feed.checkedAt||Date.now()-feed.checkedAt>=60000)refresh();notch?.update(feed,config);},5000);
+ startWeb();refresh();timer=setInterval(()=>{if(feed.error||!feed.checkedAt||Date.now()-feed.checkedAt>=60000)refresh();notch?.update(feed,config);notch?.pulse(garmin.state,config);},5000);
  if(!webTest){if(config.overlayOnly&&config.configured&&autoStarted)openOverlay();else openDashboard();if(config.overlayVisible||testMode)openOverlay();syncTaskbar();probeTaskbars();if(app.isPackaged&&config.autoStart)app.setLoginItemSettings({name:'Nebel',openAtLogin:true,path:process.execPath,args:['--autostart']});}
  });
  app.on('window-all-closed',()=>{});
  // Remove the value from the Notch before exiting (bounded wait; ttl cleans up otherwise).
- app.on('will-quit',e=>{if(notch?.active&&!notchClosed){e.preventDefault();notchClosed=true;Promise.race([notch.remove(),new Promise(r=>setTimeout(r,800))]).finally(()=>app.exit(0));}});
+ app.on('will-quit',e=>{if((notch?.active||notch?.pulseActive)&&!notchClosed){e.preventDefault();notchClosed=true;Promise.race([Promise.all([notch.remove(),notch.removePulse()]),new Promise(r=>setTimeout(r,800))]).finally(()=>app.exit(0));}});
  app.on('before-quit',()=>{quitting=true;garmin.save();optical?.dispose();controller?.cancel();taskbarChild?.kill();clearInterval(timer);clearInterval(visibilityTimer);globalShortcut.unregisterAll();for(const r of events)r.end();server?.close();tray?.destroy();});
 }
 
