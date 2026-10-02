@@ -2,9 +2,11 @@
 
 Persönliches Dashboard und minimalistisches Windows-Widget für eine vorhandene Nightscout-Instanz. Haze verwendet weiterhin die bestehende interne Datenablage `nebel-glucose`, damit gespeicherte Profile, Fensterpositionen und DPAPI-geschützte Zugangsdaten beim Update erhalten bleiben.
 
+> **Kein Medizinprodukt.** Haze ist ein privates Projekt und nicht als Medizinprodukt zugelassen. Angezeigte Werte, Trends und Hinweise können verzögert, unvollständig oder falsch sein, etwa wenn Nightscout, Dexcom oder die Verbindung ausfallen. Therapieentscheidungen (z. B. Insulin, Kohlenhydrate) nur auf Grundlage deines zugelassenen CGM-Systems oder einer Blutzuckermessung treffen. Haze ersetzt keine Alarme des CGM-Systems.
+
 ## Installieren und einrichten
 
-1. Einen selbst gebauten Installer aus `release/` im Windows-Datei-Explorer starten (Build siehe unten). Im Repository sind keine fertigen Installer enthalten. Die Installation erfolgt für dein Windows-Konto unter `%LOCALAPPDATA%\Programs\Nebel`.
+1. Den Installer `Haze-Setup-<version>.exe` von der [Releases-Seite](https://github.com/NojoMcDybo/Haze/releases) laden (oder selbst bauen, siehe unten) und im Windows-Datei-Explorer starten. Die Installation erfolgt für dein Windows-Konto unter `%LOCALAPPDATA%\Programs\Nebel`.
 2. Danach **Haze** über die Desktop-Verknüpfung oder das Startmenü öffnen. Alte PowerShell-Overlays können geschlossen werden.
 3. Zunächst **Demo erkunden** wählen oder **Nightscout verbinden**.
 4. Die Adresse deiner Nightscout-Instanz eingeben, bei lokaler Installation zum Beispiel `http://127.0.0.1:1337`. Falls erforderlich einen Nightscout-Token mit Leserechten verwenden, keinen Dexcom-Benutzernamen und kein Dexcom-Passwort.
@@ -111,3 +113,7 @@ Das Widget ist nicht fokussierbar und wird ohne Aktivierung regelmäßig nach vo
 Die Uhr muss weiter senden und in Reichweite bleiben. Nach einem App-Neustart erneut verbinden. Das Dashboard darf über X ausgeblendet werden; Haze muss im Infobereich weiterlaufen. Nach 15 Sekunden ohne neue Messung wird kein Live-Puls mehr angezeigt. Optional vom Sensor gesendete RR-Intervalle und Energie werden separat angezeigt; sie werden nicht erfunden oder als Garmin-HRV/Body-Battery interpretiert. Es werden keine Garmin-Kontodaten benötigt und keine Pulswerte auf die Festplatte geschrieben.
 
 Stress, Body Battery, Schlaf und Schritte sind über den Standard-Bluetooth-Herzfrequenzdienst nicht verfügbar. Garmin-Connect-Import ist noch nicht implementiert. Die lokale Browseransicht zeigt empfangene Werte, die Bluetooth-Verbindung wird ausschließlich im Desktop-Dashboard hergestellt.
+
+## Lizenz
+
+MIT, siehe [LICENSE](LICENSE). Der Hinweis „kein Medizinprodukt“ oben gilt unabhängig davon.
