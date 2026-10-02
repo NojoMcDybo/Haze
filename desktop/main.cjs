@@ -42,6 +42,8 @@ function openOverlay(){config.overlayVisible=true;if(!overlay||overlay.isDestroy
  overlay=new BrowserWindow({width:250,height:140,frame:false,transparent:true,hasShadow:false,roundedCorners:false,thickFrame:false,resizable:false,maximizable:false,minimizable:false,focusable:false,show:false,skipTaskbar:true,alwaysOnTop:true,title:'Haze · Widget',webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,backgroundThrottling:false}});
  secureWindow(overlay);overlay.setAlwaysOnTop(true,'screen-saver');optical=new OpticalGlass(overlay,{screen,config:()=>config,highContrast:()=>nativeTheme.shouldUseHighContrastColors,changed:broadcast});controller=new WidgetController(overlay,{geometry:widget,screen,config:()=>config,save:()=>{persist();broadcast();},onFrame:(b,s)=>optical?.frame(b,s),displays});overlay.loadFile(path.join(__dirname,'../dist/index.html'),{query:{overlay:'1'}});overlay.once('ready-to-show',()=>{controller.draw();overlay.showInactive();broadcast();});overlay.on('closed',()=>{overlay=null;controller=null;optical=null;});
  }else{overlay.showInactive();applyOverlay();broadcast();}persist();trayMenu();}
+// Widget ein/aus: Tray-Menü und Doppelklick auf den Wert in der Notch
+function toggleOverlay(){if(overlay?.isVisible()){overlay.hide();config.overlayVisible=false;persist();}else openOverlay();broadcast();trayMenu();}
 function saveBounds(){controller?.record();}
 function applyOverlay(){controller?.apply();titleTheme();syncTaskbar();}
 function resetOverlay(){config.locked=false;config.clickThrough=false;config.dock=null;config.bounds=null;config.fontSize=48;config.alignment='auto';if(controller){controller.b=null;}openOverlay();applyOverlay();saveBounds();persist();broadcast();trayMenu();}
@@ -50,7 +52,7 @@ function toggleClick(){config.clickThrough=!config.clickThrough;if(!config.click
 function useProfile(name){if(!['Arbeit','Gaming'].includes(name))throw Error('Unbekanntes Profil');Object.assign(config,config.profiles[name],{profile:name});applyOverlay();persist();broadcast();trayMenu();}
 function trayMenu(){if(!tray)return;tray.setContextMenu(Menu.buildFromTemplate([
  {label:'Dashboard öffnen',click:()=>openDashboard()},
- {label:overlay?.isVisible()?'Widget ausblenden':'Widget anzeigen',click:()=>{if(overlay?.isVisible()){overlay.hide();config.overlayVisible=false;persist();}else openOverlay();broadcast();trayMenu();}},
+ {label:overlay?.isVisible()?'Widget ausblenden':'Widget anzeigen',click:toggleOverlay},
  {label:'Anzeige an der Taskleiste',type:'checkbox',checked:config.taskbarVisible,click:()=>{config.taskbarVisible=!config.taskbarVisible;syncTaskbar();persist();broadcast();trayMenu();}},
  {label:'Profil',submenu:['Arbeit','Gaming'].map(n=>({label:n,type:'radio',checked:config.profile===n,click:()=>useProfile(n)}))},
  {label:'Durchklicken',type:'checkbox',checked:config.clickThrough,click:toggleClick},
@@ -119,7 +121,7 @@ if(!app.requestSingleInstanceLock())app.quit();else{
  visibilityTimer=setInterval(()=>keepVisible([overlay,taskbar]),1000);
  // Doppelklick auf den Graphen in der Notch -> Dashboard nach vorn (auch aus dem Tray oder minimiert).
  // Die Notch erlaubt diesem Prozess vorher AllowSetForegroundWindow, darum darf focus() hier wirklich nach vorn.
- if(!testMode&&!webTest){notch=new NotchBridge({model,open:app.isPackaged?process.execPath:undefined});notch.listen(()=>openDashboard());}
+ if(!testMode&&!webTest){notch=new NotchBridge({model,open:app.isPackaged?process.execPath:undefined});notch.listen(()=>openDashboard(),()=>toggleOverlay());}
  startWeb();refresh();timer=setInterval(()=>{if(feed.error||!feed.checkedAt||Date.now()-feed.checkedAt>=60000)refresh();notch?.update(feed,config);notch?.pulse(garmin.state,config);},5000);
  if(!webTest){if(config.overlayOnly&&config.configured&&autoStarted)openOverlay();else openDashboard();if(config.overlayVisible||testMode)openOverlay();syncTaskbar();probeTaskbars();if(app.isPackaged&&config.autoStart)app.setLoginItemSettings({name:'Nebel',openAtLogin:true,path:process.execPath,args:['--autostart']});}
  });

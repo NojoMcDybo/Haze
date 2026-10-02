@@ -7,6 +7,7 @@ const http=require('http');
 // "keine Daten" (it does not just vanish). Staleness is judged by the Notch from the last point's time.
 // Alarm logic stays here and in the sensor: the Notch only shows `alert`.
 // Double-click on the graph in the Notch -> event "open" in GET /events -> listen() calls onOpen.
+// Double-click on the reading in the Notch -> event "widget" -> listen() calls onWidget (widget on/off).
 const ID='haze:bg',OLD_ID='haze-bz',HOST='127.0.0.1',PORT=47800,TTL=900,REFRESH=60000,DAY=86400000;
 const colors={high:'#EDBC56',low:'#FF7971',normal:'#E8EFEF',stale:'#8E9A9B'};
 const directions={DoubleUp:'up2',SingleUp:'up',FortyFiveUp:'up45',Flat:'flat',FortyFiveDown:'down45',SingleDown:'down',DoubleDown:'down2'};
@@ -72,13 +73,13 @@ class NotchBridge {
  remove(){this.stop();if(this.refresh){this.ci(this.refresh);this.refresh=null;}const was=this.active;this.last=null;this.lastLevel=0;return was?this.send('DELETE','/activity/'+ID):Promise.resolve(false);}
  // Polls GET /events every 200 ms (2 s while the Notch is not reachable). Always reads the whole small
  // queue (max. 100) so a restarted Notch (sequence starts at 1 again) is noticed: then only the baseline is reset.
- listen(onOpen){
-  if(this.poll)return;this.onOpen=onOpen;
+ listen(onOpen,onWidget){
+  if(this.poll)return;this.onOpen=onOpen;this.onWidget=onWidget;
   const tick=()=>this.get('/events?after=0').then(list=>{
    if(!Array.isArray(list))return 2000;
    const max=list.reduce((m,e)=>Math.max(m,Number(e.seq)||0),0);
    if(this.seen<0||max<this.seen){this.seen=max;return 200;}
-   for(const e of list)if(e.seq>this.seen&&e.activity===ID&&e.action==='open')this.onOpen?.();
+   for(const e of list)if(e.seq>this.seen&&e.activity===ID){if(e.action==='open')this.onOpen?.();else if(e.action==='widget')this.onWidget?.();}
    this.seen=Math.max(this.seen,max);return 200;
   }).then(wait=>{if(this.poll)this.poll=this.st(tick,wait);});
   this.poll=this.st(tick,0);

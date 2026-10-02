@@ -46,6 +46,14 @@ test('Doppelklick in der Notch: "open"-Ereignis ruft onOpen, alte Ereignisse und
  events=[{seq:1,activity:'haze:bg',action:'open',ts:4}];await n.poll();assert.equal(opened,1); // Notch neu gestartet: nur Basis zuruecksetzen
  events=[...events,{seq:2,activity:'haze:bg',action:'open',ts:5}];await n.poll();assert.equal(opened,2);
  n.b.stop();assert.equal(n.timeout,null);});
+test('Doppelklick auf den Wert in der Notch: "widget"-Ereignis schaltet das Widget, nur für den Blutzucker',async()=>{
+ let events=[];const n=bridge(()=>events);let opened=0,toggled=0;
+ n.b.listen(()=>opened++,()=>toggled++);await n.poll();
+ events=[{seq:1,activity:'haze:bg',action:'widget',ts:1},{seq:2,activity:'haze:hr',action:'widget',ts:2}];await n.poll();
+ assert.equal(toggled,1);assert.equal(opened,0);
+ events=[...events,{seq:3,activity:'haze:bg',action:'widget',ts:3}];await n.poll();assert.equal(toggled,2);
+ await n.poll();assert.equal(toggled,2);                                         // nicht doppelt
+ n.b.stop();});
 test('Notch nicht erreichbar: kein Fehler, kein Absturz',async()=>{const b=new NotchBridge({model,request:()=>{throw Error('ECONNREFUSED')},setInterval:()=>1,clearInterval:()=>{}});b.update(feed(112,115),config,now);assert.equal(await b.send('POST','/activity',{}),false);assert.equal(await b.get('/events'),null);});
 test('Garmin-Puls an die Notch: nur live, mit pulse-Feld, Vorrang vor Helio',()=>{
  const g=(over={})=>({connected:true,name:'Forerunner 265',reading:{bpm:128,at:now-2000,contact:true},...over});
