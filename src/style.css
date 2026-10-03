@@ -188,3 +188,23 @@ input:focus,select:focus{outline:none;background:rgba(255,255,255,.09);box-shado
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22);background-clip:content-box}
 .settings-panel .settings-tabs{margin:0 24px 6px;padding:3px;border-bottom:0}.settings-panel .settings-tabs button{flex:1;padding:7px 4px;border-bottom:0;color:var(--n-dim)}.settings-panel .settings-tabs button.active{color:var(--n-ink)}
 html:has(.backdrop) .n-scroller[data-scope=page]{opacity:0!important;pointer-events:none}
+/* ---------- Haze 1.5: Liquid Glass (src/nojo: liquid()) und weniger Text ----------
+   Wie Folios Glas: klare Mitte, der Rand bricht, was darunter liegt, Lichtkante oben links.
+   - Kopf blendet nach unten weich aus; Farbschema und Einstellungen schweben darueber als Glas.
+   - Die Ablesung im Diagramm ist eine Glaspille ueber der Kurve und folgt dem Zeiger (Kurve und Zeitlinie
+     brechen sich an ihrer Kante).
+   - Einstellungen, Einrichtung, Hinweise und Meldungen sind Glasflaechen; die Reiter schweben im Inhalt. */
+.header{background:linear-gradient(180deg,var(--n-bg) 58%,transparent)}
+.chart-selection.n-liquid{position:absolute;z-index:2;top:2px;left:clamp(96px,calc(var(--x)*100%),calc(100% - 96px));transform:translateX(-50%);height:26px;display:flex;align-items:center;padding:0 13px;border-radius:13px;white-space:nowrap;font-size:11.5px;color:var(--n-ink);opacity:0;pointer-events:none;transition:opacity .25s var(--n-ease),left .1s linear}
+.chart-selection.n-liquid.visible{opacity:1}
+.chart-selection.n-liquid{--n-lq-tint:rgba(36,36,40,.3);--n-lq-soft:blur(.8px) saturate(170%) brightness(1.06)}
+:root[data-theme=light] .chart-selection.n-liquid{--n-lq-tint:rgba(255,255,255,.45)}
+.chart-selection.n-liquid:empty{display:none}
+:is(.settings-panel,.setup).n-liquid{--n-lq-tint:color-mix(in srgb,var(--n-bg) 80%,transparent);--n-lq-soft:blur(28px) saturate(160%)}
+:is(.settings-panel,.setup).n-liquid[data-lq]{box-shadow:0 24px 80px rgba(0,0,0,.45)}
+:root[data-theme=light] :is(.settings-panel,.setup).n-liquid[data-lq]{box-shadow:inset 0 0 0 1px rgba(0,0,0,.06),0 24px 70px rgba(0,0,0,.16)}
+.settings-panel .panel-body{padding-top:6px}
+.settings-panel .settings-tabs.n-liquid{position:sticky;top:6px;z-index:5;margin:0 -6px 18px}
+.notice.n-liquid{--n-lq-tint:color-mix(in srgb,var(--n-surface) 55%,transparent);--n-lq-soft:blur(16px) saturate(170%)}
+.toast.n-liquid{--n-lq-tint:color-mix(in srgb,var(--n-surface-2) 72%,transparent);--n-lq-soft:blur(18px) saturate(170%)}
+.garmin-steps{margin:12px 0 16px 18px;padding:0;display:grid;gap:6px;font-size:12px;line-height:1.55;color:var(--n-dim)}
