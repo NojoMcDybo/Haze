@@ -106,3 +106,85 @@ html:has(.backdrop){overflow:hidden}
 .chart-cursor{stroke:var(--muted);stroke-width:1;stroke-dasharray:2 3;vector-effect:non-scaling-stroke;pointer-events:none}
 .empty-chart.small{font-size:11px}
 .update-note{align-items:center}.update-note span{flex:1}.update-note svg{margin-top:0}
+
+/* ---------- Haze 1.4: gemeinsame Designsprache (src/nojo/nojo-ui.css, Quelle D:\Dev\nojo-design) ----------
+   Folio-Grau statt Petrol, Karten ohne harte Raender, Glas fuer alles Schwebende, Segoe statt Monospace,
+   Licht als Information (Lichtleiste, Zeit-im-Ziel-Striche, Messwert-Strich). Das Widget bleibt unberuehrt. */
+:root,:root[data-theme=light]{--bg:var(--n-bg);--card:var(--n-surface);--border:var(--n-line);--text:var(--n-ink);--muted:var(--n-dim);--high:var(--n-warn);--low:var(--n-low);--pill:rgba(255,255,255,.07);--accent:var(--n-accent);--primary:var(--n-accent);--primary-text:var(--n-accent-ink);--shadow:0 8px 22px rgba(0,0,0,.14);--range:rgba(255,255,255,.035);--pulse:var(--n-accent);font-family:var(--n-font)}
+:root[data-theme=light]{--pill:rgba(0,0,0,.05);--shadow:0 6px 18px rgba(0,0,0,.05);--range:rgba(0,0,0,.035)}
+body{background:var(--n-bg);color:var(--n-ink);-webkit-font-smoothing:antialiased}
+.eyebrow,.clock,.chart-label,.source-tag,.brand-sub,.profile-select>span{font-family:var(--n-font);font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.clock{text-transform:none;letter-spacing:0;font-size:13px}
+.chart text{font:11px var(--n-font);font-variant-numeric:tabular-nums;letter-spacing:0}
+.chart-selection{font:11px var(--n-font);font-variant-numeric:tabular-nums}
+.input-action input{font-family:var(--n-font);font-size:12px}
+.brand{font-family:var(--n-font-display);font-weight:650;letter-spacing:-.8px}
+.reading .number{font-family:var(--n-font-display);font-weight:600;letter-spacing:-.06em}
+.header{border-bottom:0;background:var(--n-bg)}
+.native-dashboard .header{padding-right:150px}
+
+/* Karten statt Rahmen */
+.chart-card,.stats article,.bottom-card,.settings-group,.garmin-card,.profile-card{border:0;background:var(--n-surface);box-shadow:inset 0 0 0 1px var(--n-line),inset 0 1px 0 rgba(255,255,255,.035),0 8px 22px rgba(0,0,0,.14)}
+:root[data-theme=light] :is(.chart-card,.stats article,.bottom-card,.settings-group,.garmin-card,.profile-card){box-shadow:inset 0 0 0 1px var(--n-line),0 6px 18px rgba(0,0,0,.05)}
+.chart-card{border-radius:22px}.stats article{border-radius:18px}.bottom-card{border-radius:20px}
+.bottom-icon{background:rgba(255,255,255,.06)}
+.status-pill{background:rgba(255,255,255,.07)}
+:root[data-theme=light] .status-pill{background:rgba(0,0,0,.05)}
+
+/* Knoepfe */
+.button{border-radius:12px;min-height:40px;padding:0 18px;font-weight:600;transition:background .2s var(--n-ease),transform .3s var(--n-spring)}
+.button:active{transform:scale(.96)}
+.primary{background:var(--n-accent);color:var(--n-accent-ink)}.primary:hover{filter:none;background:#9acbff}
+:root[data-theme=light] .primary:hover{background:#0b5fbd}
+.secondary{border:0;background:rgba(255,255,255,.08)}.secondary:hover{filter:none;background:rgba(255,255,255,.14)}
+:root[data-theme=light] .secondary{background:rgba(0,0,0,.05)}:root[data-theme=light] .secondary:hover{background:rgba(0,0,0,.09)}
+.compact-button{border-radius:10px;min-height:32px;padding:0 12px}
+.icon-button{position:relative;border:0;border-radius:50%;width:38px;height:38px;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px var(--n-line);color:var(--n-dim);transition:background .2s var(--n-ease),color .2s,transform .3s var(--n-spring)}
+.icon-button:hover{filter:none;background:rgba(255,255,255,.13);color:var(--n-ink)}
+:root[data-theme=light] .icon-button{background:rgba(0,0,0,.04)}
+.icon-button .n-dot{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--n-accent);box-shadow:0 0 8px var(--n-accent)}
+
+/* Segmente und Farbschema: Glasrinne mit gleitender Perle (segments() aus nojo-ui.ts) */
+.segmented,.theme-switch{position:relative;display:flex;gap:2px;padding:3px;border:0;border-radius:999px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px var(--n-line)}
+:root[data-theme=light] :is(.segmented,.theme-switch){background:rgba(0,0,0,.05)}
+.segmented button{position:relative;z-index:1;font-family:var(--n-font);font-weight:550;color:var(--n-dim);padding:7px 15px;border-radius:999px}
+.segmented button.active{background:transparent;color:var(--n-ink)}
+.segmented button:hover{filter:none;color:var(--n-ink)}
+.theme-switch button{position:relative;z-index:1;width:31px;height:31px;border-radius:50%;color:var(--n-dim)}
+.theme-switch .selected{background:transparent;color:var(--n-ink);box-shadow:none}
+/* Zeitbereiche: jeder Knopf zeigt seine Zeit im Zielbereich als feinen Lichtstrich */
+.range-picker button{padding:7px 16px 9px}
+.range-picker .tir{position:absolute;left:30%;right:30%;bottom:4px;height:2px;border-radius:1px;background:linear-gradient(90deg,var(--n-ink) calc(var(--p)*100%),rgba(255,255,255,.14) 0);opacity:.55;transition:opacity .2s}
+.range-picker button.active .tir,.range-picker button:hover .tir{opacity:1;box-shadow:0 0 6px rgba(255,255,255,.25)}
+:root[data-theme=light] .range-picker .tir{background:linear-gradient(90deg,var(--n-ink) calc(var(--p)*100%),rgba(0,0,0,.12) 0)}
+
+/* Messwert-Strich: fuellt sich bis zum naechsten erwarteten Wert, leuchtet kurz bei einem neuen */
+.age-line{width:84px;height:2px;margin:9px auto 0;border-radius:1px;background:var(--n-line-2);overflow:hidden}
+.age-line i{display:block;height:100%;width:calc(var(--p)*100%);background:var(--n-ink);opacity:.7;transition:width 1s linear;animation:age-new 1.6s var(--n-ease)}
+.age-line.stale i{background:var(--n-low);opacity:.9}
+@keyframes age-new{0%{box-shadow:0 0 14px 3px rgba(255,255,255,.75)}100%{box-shadow:none}}
+
+/* Eingaben, Schalter */
+input,select{border:0;border-radius:11px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px var(--n-line);color:var(--n-ink);transition:box-shadow .2s var(--n-ease),background .2s}
+input:focus,select:focus{outline:none;background:rgba(255,255,255,.09);box-shadow:inset 0 0 0 1px rgba(117,184,255,.55)}
+:root[data-theme=light] :is(input,select){background:rgba(0,0,0,.04)}
+.toggle{width:40px;height:24px;border:0;border-radius:999px;background:rgba(255,255,255,.1);box-shadow:inset 0 0 0 1px var(--n-line);transition:background .25s var(--n-ease),box-shadow .25s}
+.toggle:after{top:3px;left:3px;width:18px;height:18px;background:var(--n-dim);transition:left .38s var(--n-spring),background .25s}
+.toggle-row input:checked+.toggle{background:rgba(255,255,255,.86);box-shadow:0 0 12px rgba(255,255,255,.22)}
+.toggle-row input:checked+.toggle:after{left:19px;background:var(--n-bg)}
+:root[data-theme=light] .toggle-row input:checked+.toggle{background:var(--n-ink);box-shadow:none}
+:root[data-theme=light] .toggle-row input:checked+.toggle:after{background:#fff}
+
+/* Schwebendes ist Glas: Hinweise, Einstellungen, Einrichtung, Meldungen */
+.notice{border:0;background:var(--n-glass);-webkit-backdrop-filter:var(--n-glass-blur);backdrop-filter:var(--n-glass-blur);box-shadow:inset 0 1px 0 var(--n-glass-spec),inset 0 0 0 1px var(--n-glass-rim),var(--n-shadow);border-radius:16px}
+.backdrop{background:rgba(0,0,0,.42);backdrop-filter:blur(10px)}
+:root[data-theme=light] .backdrop{background:rgba(242,242,244,.4)}
+.settings-panel,.setup{border:0;background:color-mix(in srgb,var(--n-bg) 88%,transparent);-webkit-backdrop-filter:blur(30px) saturate(160%);backdrop-filter:blur(30px) saturate(160%);box-shadow:inset 0 1px 0 var(--n-glass-spec),inset 0 0 0 1px var(--n-glass-rim),0 24px 80px rgba(0,0,0,.45)}
+.settings-tabs{border-bottom:1px solid var(--n-line)}
+.settings-tabs button.active{color:var(--n-ink);border-color:var(--n-ink)}
+.toast{background:var(--n-glass);color:var(--n-glass-ink);-webkit-backdrop-filter:var(--n-glass-blur);backdrop-filter:var(--n-glass-blur);box-shadow:inset 0 1px 0 var(--n-glass-spec),inset 0 0 0 1px var(--n-glass-rim),var(--n-shadow);border-radius:15px}
+.widget-preview,.widget-preview:has(.vertical){background:radial-gradient(120% 160% at 50% 0%,#2c2c2f 0%,#1f1f21 60%,#19191b 100%);box-shadow:inset 0 0 0 1px var(--n-line)}
+:root[data-theme=light] :is(.widget-preview,.widget-preview:has(.vertical)){background:radial-gradient(120% 160% at 50% 0%,#ffffff 0%,#ececef 100%)}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22);background-clip:content-box}
+.settings-panel .settings-tabs{margin:0 24px 6px;padding:3px;border-bottom:0}.settings-panel .settings-tabs button{flex:1;padding:7px 4px;border-bottom:0;color:var(--n-dim)}.settings-panel .settings-tabs button.active{color:var(--n-ink)}
+html:has(.backdrop) .n-scroller[data-scope=page]{opacity:0!important;pointer-events:none}
