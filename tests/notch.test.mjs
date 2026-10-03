@@ -6,7 +6,7 @@ function bridge(events=[]){const calls=[];const request=(opts,cb)=>{const call={
   const body=opts.method==='GET'?JSON.stringify(typeof events==='function'?events():events):'';
   const res={statusCode:200,resume(){},setEncoding(){},on(e,f){if(e==='data')setImmediate(()=>f(body));if(e==='end')setImmediate(()=>setImmediate(f));}};cb(res);}};};
  let interval=null,timeout=null;const b=new NotchBridge({model,request,setInterval:f=>{interval=f;return 1},clearInterval:()=>{interval=null},setTimeout:f=>{timeout=f;return 2},clearTimeout:()=>{timeout=null}});
- return {b,calls,tick:()=>interval?.(),poll:async()=>{const f=timeout;timeout=null;f?.();await new Promise(r=>setTimeout(r,20));},get interval(){return interval},get timeout(){return timeout}};}
+ return {b,calls,tick:()=>interval?.(),poll:async()=>{const f=timeout;timeout=null;f?.();for(let i=0;i<200&&!timeout;i++)await new Promise(r=>setTimeout(r,5));},get interval(){return interval},get timeout(){return timeout}};}
 const posts=calls=>calls.filter(c=>c.method==='POST');
 test('Notch-Aktivität: Wert, Trend, Änderung, Verlauf, Farben',()=>{
  const a=activity(model,feed(112,115),config,now).activity;assert.equal(a.value,112);assert.equal(a.subtitle,'→ −3 · vor 3 Min.');assert.equal(a.color,'#E8EFEF');assert.equal(a.ttl,900);assert.equal(a.id,'haze:bg');assert.equal(a.title,'Blutzucker');assert.ok(a.icon.startsWith('data:image/svg+xml;base64,'));assert.equal('open' in a,false);
