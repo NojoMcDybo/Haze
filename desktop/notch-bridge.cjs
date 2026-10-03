@@ -11,7 +11,10 @@ const http=require('http');
 const ID='haze:bg',OLD_ID='haze-bz',HOST='127.0.0.1',PORT=47800,TTL=900,REFRESH=60000,DAY=86400000;
 const colors={high:'#EDBC56',low:'#FF7971',normal:'#E8EFEF',stale:'#8E9A9B'};
 const directions={DoubleUp:'up2',SingleUp:'up',FortyFiveUp:'up45',Flat:'flat',FortyFiveDown:'down45',SingleDown:'down',DoubleDown:'down2'};
-function icon(color){return 'data:image/svg+xml;base64,'+Buffer.from(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 2.5c3.2 4.3 6.5 8.2 6.5 12a6.5 6.5 0 0 1-13 0c0-3.8 3.3-7.7 6.5-12z' fill='${color}'/></svg>`).toString('base64');}
+// Symbole aus der gemeinsamen Bibliothek (shared/nojo-icons.json, Quelle nojo-design/assets/icons.mjs)
+const NOJO=require('../shared/nojo-icons.json');
+function libIcon(name,color){const i=NOJO.icons[name];const paint=t=>t.replace(/currentColor/g,color);return 'data:image/svg+xml;base64,'+Buffer.from(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' ${paint(NOJO.attrs[i.kind])}>${paint(i.body)}</svg>`).toString('base64');}
+function icon(color){return libIcon('drop',color);}
 // Sensor trend if present; otherwise Dexcom style from the rate over the last ~15 min (1/2/3 mg/dL per minute).
 function trend(entries){
  const last=entries.at(-1);if(!last)return null;if(directions[last.trend])return directions[last.trend];
@@ -40,7 +43,7 @@ function activity(model,feed,config,now=Date.now(),open){
 // skin contact not reported as lost, at most 10 s old. ttl 15 s, so it disappears on its own when
 // the watch stops sending; re-sent at least every 5 s while it is live.
 const HR_ID='haze:hr',HR_TTL=15,HR_FRESH=10000,HR_KEEP=5000,HR_COLOR='#FF5A6E';
-function heartIcon(){return 'data:image/svg+xml;base64,'+Buffer.from(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 20.6S4 15.8 4 10.2A4.4 4.4 0 0 1 12 7.7a4.4 4.4 0 0 1 8 2.5c0 5.6-8 10.4-8 10.4z' fill='${HR_COLOR}'/></svg>`).toString('base64');}
+function heartIcon(){return libIcon('heart',HR_COLOR);}
 // Pure: Garmin state -> Notch pulse activity, or null when there is no live reading.
 function pulseActivity(garmin,now=Date.now(),open){
  const r=garmin?.reading;if(!garmin?.connected||!r||!Number.isInteger(r.bpm)||!Number.isFinite(r.at)||r.bpm<1||r.bpm>300||now-r.at<0||now-r.at>HR_FRESH||r.contact===false)return null;
