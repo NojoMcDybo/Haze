@@ -29,7 +29,7 @@ Die **Schriftfarbe** des Widgets ist unabhängig vom App-Theme wählbar (hell f�
 
 ### Aussehen
 
-Haze spricht seit 1.4 dieselbe Designsprache wie Folio, Helio und die Notch-Einstellungen (Quelle `D:\Dev\nojo-design`, Kopie unter `src/nojo/`): Folio-Grau statt Petrol, Karten ohne harte Ränder, Glas für alles Schwebende (Fensterknöpfe als Glaspille, Einstellungen, Hinweise), Licht als Information. Elemente mit Doppelfunktion: die **Lichtleiste** am rechten Rand zeigt die Position und wird beim Verweilen zur Sprungleiste (Wert, Verlauf, Statistik, Widget); die **Zeitbereich-Knöpfe** tragen ihre Zeit im Zielbereich als feinen Strich; unter dem Alter füllt sich ein **Messwert-Strich** bis zum nächsten erwarteten Wert und leuchtet kurz bei einem neuen; das **Einstellungs-Symbol** bekommt einen Punkt, wenn ein Update bereitliegt. Das Widget selbst bleibt unverändert.
+Haze spricht seit 1.4 dieselbe Designsprache wie Folio, Helio und die Notch-Einstellungen (Quelle `D:\Dev\nojo-design`, Kopie unter `src/nojo/`): Folio-Grau statt Petrol, Karten ohne harte Ränder, Glas für alles Schwebende (Fensterknöpfe als Glaspille, Einstellungen, Hinweise), Licht als Information. Statt einer Bildlaufleiste zeigt eine dünne **Lichtleiste** am rechten Rand die Position (leuchtet beim Scrollen kurz auf, lässt sich ziehen). Elemente mit Doppelfunktion: die **Zeitbereich-Knöpfe** tragen ihre Zeit im Zielbereich als feinen Strich; unter dem Alter füllt sich ein **Messwert-Strich** bis zum nächsten erwarteten Wert und leuchtet kurz bei einem neuen; das **Einstellungs-Symbol** bekommt einen Punkt, wenn ein Update bereitliegt. Das Widget selbst bleibt unverändert.
 
 ### Notch
 
