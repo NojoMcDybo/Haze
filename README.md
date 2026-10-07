@@ -114,9 +114,19 @@ Das Widget ist nicht fokussierbar und wird ohne Aktivierung regelmäßig nach vo
 3. Unter **Einstellungen → Garmin** auf **Uhr verbinden** klicken und die eigene Uhr auswählen.
 4. Nach dem ersten gültigen Paket erscheinen Puls und Empfangsalter im Dashboard sowie ein Herzsymbol mit Puls im Widget.
 
-Die Uhr muss weiter senden und in Reichweite bleiben. Nach einem App-Neustart erneut verbinden. Das Dashboard darf über X ausgeblendet werden; Haze muss im Infobereich weiterlaufen. Nach 15 Sekunden ohne neue Messung wird kein Live-Puls mehr angezeigt. Optional vom Sensor gesendete RR-Intervalle und Energie werden separat angezeigt; sie werden nicht erfunden oder als Garmin-HRV/Body-Battery interpretiert. Es werden keine Garmin-Kontodaten benötigt und keine Pulswerte auf die Festplatte geschrieben.
+Die Uhr muss weiter senden und in Reichweite bleiben. Nach einem App-Neustart erneut verbinden. Das Dashboard darf über X ausgeblendet werden; Haze muss im Infobereich weiterlaufen. Nach 15 Sekunden ohne neue Messung wird kein Live-Puls mehr angezeigt. Optional vom Sensor gesendete RR-Intervalle und Energie werden separat angezeigt; sie werden nicht erfunden oder als Garmin-HRV/Body-Battery interpretiert. Es werden keine Garmin-Kontodaten benötigt. Der Live-Puls wird als Minutenmittel der letzten 24 Stunden lokal in `heart-rate.json` gehalten, damit der Verlauf einen Neustart übersteht.
 
 Stress, Body Battery, Schlaf und Schritte sind über den Standard-Bluetooth-Herzfrequenzdienst nicht verfügbar. Garmin-Connect-Import ist noch nicht implementiert. Die lokale Browseransicht zeigt empfangene Werte, die Bluetooth-Verbindung wird ausschließlich im Desktop-Dashboard hergestellt.
+
+## Auswertung und Historie (1.5)
+
+Haze legt eine lokale Datenbank `haze.db` im Datenordner an und sammelt dort Glukose, Pumpendaten und Garmin-Daten über bis zu 180 Tage (einstellbar 30/90/180/365). Abgeglichen wird 15 Sekunden nach dem Start, stündlich und nach dem Standby; täglich entsteht eine Sicherung (7 Tage, dazu 8 Wochen je eine). Plan, Entscheidungen und Grenzen: `docs/PLAN-DATENANALYSE.md`.
+
+- **Glukose:** aus Nightscout (Dexcom Share). Lücken, etwa wenn der PC länger aus war, holt Haze über Tandem Source nach oder per **Clarity-Export** (clarity.dexcom.eu › Exportieren › CSV; Einstellungen › Daten › Clarity-Export importieren).
+- **Tandem t:slim X2:** Haze startet bei jedem Abgleich `tconnectsync` (separat installieren; eigene `.env` mit Tandem-Zugang, `TCONNECT_REGION=EU`, `NS_URL`, `NS_SECRET`). Pfad zum Programm und Ordner der `.env` unter Einstellungen › Daten. Haze selbst kennt die Tandem-Zugangsdaten nicht.
+- **Garmin Connect:** Einstellungen › Daten › Bei Garmin anmelden. Die Anmeldung läuft auf Garmins Seite in einem Haze-Fenster (auch mit Zwei-Faktor-Code); Haze sieht das Passwort nicht und nutzt die Sitzung dieses Fensters. Inoffizielle Schnittstelle: Garmin kann sie ändern.
+- **Auswertung** im Dashboard (14/30/90 Tage): Zeit in Bereichen nach internationalem Konsens, zeitgewichtet; Mittelwert, GMI, CV, GRI; Tagesprofil (AGP); Tiefs; Nächte mit Schlafwert; Training; Woche für Woche. Mögliche Kompressionstiefs und Sensor-Aufwärmphasen werden ausgeklammert.
+- **Zusammenhänge** zeigt Haze nur mit ausreichend vielen Tagen, Permutationstest, Bootstrap-Intervall und FDR-Korrektur, immer beschreibend. Haze gibt keine Hinweise zu Insulin, Kohlenhydraten oder Therapie.
 
 ## Lizenz
 
