@@ -1,4 +1,4 @@
-const {app,BrowserWindow,ipcMain,Tray,Menu,nativeImage,nativeTheme,safeStorage,globalShortcut,screen,powerMonitor,shell}=require('electron');
+const {app,BrowserWindow,ipcMain,Tray,Menu,nativeImage,nativeTheme,safeStorage,globalShortcut,screen,powerMonitor,shell,dialog}=require('electron');
 const fs=require('fs'),path=require('path'),http=require('http'),crypto=require('crypto');
 const WidgetController=require('./widget-controller.cjs');
 const {createUpdater}=require('./updater.cjs');let updater;
@@ -7,6 +7,8 @@ const keepVisible=require('./keep-visible.cjs');
 const {NotchBridge}=require('./notch-bridge.cjs');
 const Garmin=require('./garmin.cjs');
 const garmin=new Garmin(()=>{if(config)broadcast();});
+// Historie, Synchronisierung und Analyse (haze.db); siehe docs/PLAN-DATENANALYSE.md
+const DataService=require('./data.cjs');let data=null,dataError=null;
 // Preserve the 1.0 storage identity, including DPAPI secrets, despite the new product name.
 app.setPath('userData',path.join(app.getPath('appData'),'nebel-glucose'));
 app.setAppUserModelId('local.nebel.glucose');
@@ -27,7 +29,7 @@ function syncTaskbar(){if(!config.taskbarVisible){taskbar?.hide();return;}if(!ta
 function titleTheme(){if(!dashboard||dashboard.isDestroyed())return;const dark=config.theme==='dark'||config.theme==='system'&&nativeTheme.shouldUseDarkColors;dashboard.setBackgroundColor(dark?'#1C1C1E':'#F2F2F4');}
 function persist(){fs.mkdirSync(path.dirname(configPath),{recursive:true});fs.writeFileSync(configPath+'.tmp',JSON.stringify(config,null,2));fs.renameSync(configPath+'.tmp',configPath);}
 function publicConfig(){const {secret,...safe}=config;return {...safe,hasToken:!!secret};}
-function state(){return {config:publicConfig(),garmin:garmin.state,feed,systemDark:nativeTheme.shouldUseDarkColors,version:app.getVersion(),desktop:true,shortcutError,webPort,widgetFrame:controller?.frame,glassStatus:optical?.status,highContrast:nativeTheme.shouldUseHighContrastColors,displays:displays().map(d=>({id:d.id,label:d.label||'Monitor '+d.id})),overlayVisible:!!overlay?.isVisible(),update:updater?updater.state():{configured:false,status:'dev',message:''}};}
+function state(){return {data:data?data.publicStatus():{error:dataError},config:publicConfig(),garmin:garmin.state,feed,systemDark:nativeTheme.shouldUseDarkColors,version:app.getVersion(),desktop:true,shortcutError,webPort,widgetFrame:controller?.frame,glassStatus:optical?.status,highContrast:nativeTheme.shouldUseHighContrastColors,displays:displays().map(d=>({id:d.id,label:d.label||'Monitor '+d.id})),overlayVisible:!!overlay?.isVisible(),update:updater?updater.state():{configured:false,status:'dev',message:''}};}
 function broadcast(){notch?.update(feed,config);notch?.pulse(garmin.state,config);const s=state();for(const w of [dashboard,overlay,taskbar])if(w&&!w.isDestroyed())w.webContents.send('state',s);for(const res of events)res.write(`data: ${JSON.stringify(s)}\n\n`);}
 function token(){if(!config.secret)return '';try{return safeStorage.decryptString(Buffer.from(config.secret,'base64'));}catch{throw Error('Lesetoken kann mit diesem Windows-Konto nicht entschlüsselt werden. Bitte neu eingeben.');}}
 async function refresh(){if(polling)return;polling=true;const current=generation;try{const d=config.source==='demo'?provider.demoProvider():await provider.nightscout(config.url,token());if(current!==generation)return;feed={...d,error:null,kind:null,checkedAt:Date.now()};}catch(e){if(current===generation)feed={...feed,error:e.message,kind:e.kind||'credentials',checkedAt:Date.now()};}finally{polling=false;broadcast();if(current!==generation)refresh();}}
@@ -87,6 +89,15 @@ async function action(type,p={}){switch(type){
  case 'undock':controller?.detach();break;
  case 'quit':quitting=true;app.quit();break;
  case 'window':{if(!dashboard||dashboard.isDestroyed())return {ok:false};const op=p?.op;if(op==='minimize')dashboard.minimize();else if(op==='maximize'){if(dashboard.isMaximized())dashboard.unmaximize();else dashboard.maximize();}else if(op==='close')dashboard.close();return {ok:true};}
+ case 'analysis':if(!data)throw Error(dataError||'Datenbank nicht verfügbar');return await data.analysis({days:Number(p.days)||14});
+ case 'sync-now':if(!data)throw Error(dataError||'Datenbank nicht verfügbar');data.run('manuell');break;
+ case 'import-clarity':{if(!data)throw Error(dataError||'Datenbank nicht verfügbar');const r=await dialog.showOpenDialog(dashboard,{title:'Clarity-Export (CSV) importieren',filters:[{name:'Clarity-Export',extensions:['csv']}],properties:['openFile']});if(r.canceled||!r.filePaths[0])return {ok:false};return {ok:true,...await data.importClarity(r.filePaths[0])};}
+ case 'garmin-login':if(!data)throw Error(dataError||'Datenbank nicht verfügbar');config.garminConnect=true;persist();data.garmin.openLogin();break;
+ case 'garmin-logout':config.garminConnect=false;persist();await data?.garmin.logout();break;
+ case 'tandem':{const t=p||{};if(typeof t.enabled!=='boolean'||typeof t.command!=='string'||typeof t.cwd!=='string'||t.command.length>500||t.cwd.length>500)throw Error('Ungültige tconnectsync-Einstellung');const args=Array.isArray(t.args)?t.args.filter(a=>typeof a==='string'&&a.length<100).slice(0,6):[];config.tandem={enabled:t.enabled,command:t.command.trim(),cwd:t.cwd.trim(),args,gapFeatures:['CGM']};persist();break;}
+ case 'tandem-check':if(!data)throw Error(dataError||'Datenbank nicht verfügbar');try{const r=await data.checkTandem();return {ok:true,log:r.log.slice(-800)};}catch(e){return {ok:false,error:e.message,log:e.log?.slice(-800)};}
+ case 'pick-path':{const folder=p.kind==='folder';const r=await dialog.showOpenDialog(dashboard,{title:folder?'Ordner wählen':'Programm wählen',properties:[folder?'openDirectory':'openFile'],filters:folder?undefined:[{name:'Programm',extensions:['exe','cmd','bat']}]});return r.canceled?{ok:false}:{ok:true,path:r.filePaths[0]};}
+ case 'backfill-days':{const d=Number(p.days);if(![30,90,180,365].includes(d))throw Error('Ungültiger Rückblick');config.backfillDays=d;persist();break;}
  case 'updates':return await updater.check();
  case 'install-update':return await updater.install();
  default:throw Error('Unbekannte Aktion');
@@ -98,7 +109,7 @@ function startWeb(){const root=path.resolve(__dirname,'../dist');server=http.cre
  if(u.pathname.startsWith('/api/')){if(!authorized){res.writeHead(401).end();return;}if(req.headers.origin&&req.headers.origin!==origin){res.writeHead(403).end();return;}
  if(u.pathname==='/api/state'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify(state()));return;}
  if(u.pathname==='/api/events'){res.writeHead(200,{'Content-Type':'text/event-stream','Connection':'keep-alive'});events.add(res);res.write(`data: ${JSON.stringify(state())}\n\n`);req.on('close',()=>events.delete(res));return;}
- if(u.pathname==='/api/action'&&req.method==='POST'){if(req.headers.origin!==origin||req.headers['content-type']!=='application/json'){res.writeHead(403).end();return;}let body='';for await(const b of req){body+=b;if(body.length>16000){res.writeHead(413).end();return;}}try{const {type,payload}=JSON.parse(body);if(['window','resize-start','drag-start','gesture-move','gesture-end','widget-measure','widget-motion','quit'].includes(type))throw Error('Diese Aktion ist hier nicht verfügbar.');const r=await action(type,payload);res.setHeader('Content-Type','application/json');res.end(JSON.stringify(r));}catch(e){res.writeHead(400,{'Content-Type':'application/json'});res.end(JSON.stringify({error:e.message}));}return;}res.writeHead(404).end();return;}
+ if(u.pathname==='/api/action'&&req.method==='POST'){if(req.headers.origin!==origin||req.headers['content-type']!=='application/json'){res.writeHead(403).end();return;}let body='';for await(const b of req){body+=b;if(body.length>16000){res.writeHead(413).end();return;}}try{const {type,payload}=JSON.parse(body);if(['window','resize-start','drag-start','gesture-move','gesture-end','widget-measure','widget-motion','quit','import-clarity','garmin-login','garmin-logout','tandem','tandem-check','pick-path','backfill-days'].includes(type))throw Error('Diese Aktion ist hier nicht verfügbar.');const r=await action(type,payload);res.setHeader('Content-Type','application/json');res.end(JSON.stringify(r));}catch(e){res.writeHead(400,{'Content-Type':'application/json'});res.end(JSON.stringify({error:e.message}));}return;}res.writeHead(404).end();return;}
  if(req.method!=='GET'){res.writeHead(405).end();return;}if(req.headers['sec-fetch-site']==='cross-site'){res.writeHead(403).end();return;}
  if(u.pathname==='/')res.setHeader('Set-Cookie',`nebel=${webKey}; HttpOnly; SameSite=Strict; Path=/`);
  const file=path.resolve(root,'.'+decodeURIComponent(u.pathname==='/'?'/index.html':u.pathname));if(!file.startsWith(root+path.sep)||!fs.existsSync(file)){res.writeHead(404).end();return;}
@@ -109,6 +120,7 @@ if(!app.requestSingleInstanceLock())app.quit();else{
  app.whenReady().then(async()=>{
  model=await import('../shared/model.mjs');widget=await import('../shared/widget.mjs');provider=await import('../shared/provider.mjs');configPath=path.join(app.getPath('userData'),'settings.json');updater=createUpdater({updater:app.isPackaged?require('electron-updater').autoUpdater:null,version:app.getVersion(),packaged:app.isPackaged,onChange:()=>broadcast(),beforeInstall:()=>{quitting=true;}});updater.start();let saved={};try{saved=JSON.parse(fs.readFileSync(configPath,'utf8'));}catch{}config=widget.migrate(saved,model.defaults());
  await garmin.load(path.join(app.getPath('userData'),'heart-rate.json'));
+ try{data=new DataService({dir:app.getPath('userData'),config:()=>config,token,changed:()=>broadcast()});await data.init();}catch(e){data=null;dataError=`Datenbank nicht verfügbar: ${e.message}`;}
  if(testMode){config=widget.migrate({},model.defaults());config.configured=true;webPort=17835;}
  try{registerShortcut(config.shortcut);}catch(e){shortcutError=e.message;config.clickThrough=false;}
  ipcMain.handle('garmin',(e,type,p={})=>{if(e.sender!==dashboard?.webContents)throw Error('Nur im Dashboard verfügbar');if(type==='choose')garmin.choose(p.id);else if(type==='update')garmin.update(p);else throw Error('Unbekannte Aktion');return {ok:true};});
@@ -119,18 +131,18 @@ if(!app.requestSingleInstanceLock())app.quit();else{
  nativeTheme.on('updated',()=>{titleTheme();broadcast();});
  powerMonitor.on('suspend',()=>optical?.suspend(true));powerMonitor.on('lock-screen',()=>optical?.suspend(true));powerMonitor.on('unlock-screen',()=>optical?.suspend(false));
  const updateDisplays=()=>{if(controller){controller.apply();controller.record();}placeTaskbar();probeTaskbars();broadcast();};
- screen.on('display-removed',updateDisplays);screen.on('display-added',updateDisplays);screen.on('display-metrics-changed',updateDisplays);powerMonitor.on('resume',()=>{optical?.suspend(false);updateDisplays();refresh();});
+ screen.on('display-removed',updateDisplays);screen.on('display-added',updateDisplays);screen.on('display-metrics-changed',updateDisplays);powerMonitor.on('resume',()=>{optical?.suspend(false);updateDisplays();refresh();setTimeout(()=>data?.run('nach Standby'),20000);});
  visibilityTimer=setInterval(()=>keepVisible([overlay,taskbar]),1000);
  // Doppelklick auf den Graphen in der Notch -> Dashboard nach vorn (auch aus dem Tray oder minimiert).
  // Die Notch erlaubt diesem Prozess vorher AllowSetForegroundWindow, darum darf focus() hier wirklich nach vorn.
  if(!testMode&&!webTest){notch=new NotchBridge({model,open:app.isPackaged?process.execPath:undefined});notch.listen(()=>openDashboard(),()=>toggleOverlay());}
- startWeb();refresh();timer=setInterval(()=>{if(feed.error||!feed.checkedAt||Date.now()-feed.checkedAt>=60000)refresh();notch?.update(feed,config);notch?.pulse(garmin.state,config);},5000);
+ startWeb();refresh();if(!testMode&&!webTest)data?.start();timer=setInterval(()=>{if(feed.error||!feed.checkedAt||Date.now()-feed.checkedAt>=60000)refresh();notch?.update(feed,config);notch?.pulse(garmin.state,config);},5000);
  if(!webTest){if(config.overlayOnly&&config.configured&&autoStarted)openOverlay();else openDashboard();if(config.overlayVisible||testMode)openOverlay();syncTaskbar();probeTaskbars();if(app.isPackaged&&config.autoStart)app.setLoginItemSettings({name:'Nebel',openAtLogin:true,path:process.execPath,args:['--autostart']});}
  });
  app.on('window-all-closed',()=>{});
  // Remove the value from the Notch before exiting (bounded wait; ttl cleans up otherwise).
  app.on('will-quit',e=>{if((notch?.active||notch?.pulseActive)&&!notchClosed){e.preventDefault();notchClosed=true;Promise.race([Promise.all([notch.remove(),notch.removePulse()]),new Promise(r=>setTimeout(r,800))]).finally(()=>app.exit(0));}});
- app.on('before-quit',()=>{quitting=true;garmin.save();optical?.dispose();controller?.cancel();taskbarChild?.kill();clearInterval(timer);clearInterval(visibilityTimer);globalShortcut.unregisterAll();for(const r of events)r.end();server?.close();tray?.destroy();});
+ app.on('before-quit',()=>{quitting=true;garmin.save();data?.close();optical?.dispose();controller?.cancel();taskbarChild?.kill();clearInterval(timer);clearInterval(visibilityTimer);globalShortcut.unregisterAll();for(const r of events)r.end();server?.close();tray?.destroy();});
 }
 
 
