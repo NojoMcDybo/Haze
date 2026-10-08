@@ -1,5 +1,5 @@
 // Nightscout-Historie schrittweise nach haze.db holen (nur GET). Quelle für Share-Werte (nightscout-connect)
-// und Pumpendaten (tconnectsync). Zeitfenster aufsteigend, damit ein Abbruch nichts überspringt.
+// und Behandlungen (Careportal o. Ä.). Zeitfenster aufsteigend, damit ein Abbruch nichts überspringt.
 const DAY=86400000,HOUR=3600000;
 function base(url){
  const u=new URL(url);if(u.username||u.password||u.search||u.hash)throw Error('Ungültige Nightscout-Adresse');
@@ -20,8 +20,8 @@ export function mapEntry(e){
  if(!Number.isFinite(time)||!Number.isFinite(value)||(e.type&&e.type!=='sgv')||value<20||value>600)return null;
  return {time,value,trend:e.direction??null,device:e.device??null,source:pumpDevice(e.device)||pumpDevice(e.enteredBy)?'pump':'share'};
 }
-// Nightscout-Behandlungen (Careportal, tconnectsync) auf wenige Typen abbilden; Unbekanntes bleibt als Notiz erhalten.
-// tconnectsync (parser/nightscout.py): enteredBy „Pump (tconnectsync)“; Temp Basal (absolute, duration), Combo Bolus
+// Nightscout-Behandlungen auf wenige Typen abbilden; Unbekanntes bleibt als Notiz erhalten. Versteht auch das Format
+// von Pumpen-Uploadern wie tconnectsync (enteredBy „Pump (tconnectsync)“), falls Nightscout solche Daten enthält: Temp Basal (absolute, duration), Combo Bolus
 // (insulin, carbs), Site Change, Basal Suspension/Resume, Alarm, CGM Alert, Sensor Start/Stop, Sleep, Exercise.
 export function mapTreatment(t){
  const time=Number(t.date??t.mills??Date.parse(t.created_at??t.timestamp));if(!Number.isFinite(time))return null;
@@ -48,7 +48,7 @@ export function mapTreatment(t){
 export const deviceTypes=new Set(['sensor_start','sensor_stop','alarm','site','cartridge']);
 export async function syncNightscout({url,token='',store,fetcher=fetch,now=Date.now(),backfillDays=180,rescanDays=3,from:forceFrom,to:forceTo,onProgress=()=>{}}){
  const root=base(url),floor=now-backfillDays*DAY,result={entries:0,treatments:0,devices:0,windows:0};
- // Werte: ab Cursor (1 h Überlappung); Behandlungen: immer die letzten Tage erneut (tconnectsync lädt verspätet hoch).
+ // Werte: ab Cursor (1 h Überlappung); Behandlungen: immer die letzten Tage erneut (Uploader tragen oft verspätet nach).
  const st=store.state('nightscout-entries'),tt=store.state('nightscout-treatments');
  const eFrom=forceFrom??Math.max(floor,(st.cursor??floor)-HOUR),tFrom=forceFrom??Math.max(floor,Math.min(tt.cursor??floor,now-rescanDays*DAY)),to=forceTo??now+HOUR;
  for(let a=eFrom;a<to;a+=DAY){

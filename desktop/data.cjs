@@ -1,8 +1,7 @@
-// Datenhaltung und Hintergrund-Synchronisierung: haze.db, Nightscout-Historie, Lücken (Tandem/Clarity), Garmin, Sicherung.
+// Datenhaltung und Hintergrund-Synchronisierung: haze.db, Nightscout-Historie, Lücken (Nachholen per Clarity-Import), Garmin, Sicherung.
 // Läuft beim Start (verzögert), stündlich und nach Standby. Fehler einer Quelle stoppen die anderen nicht.
 const fs=require('fs'),path=require('path');
 const {Worker}=require('worker_threads');
-const tandem=require('./tandem.cjs');
 const GarminConnect=require('./garmin-connect.cjs');
 const DAY=86400000,HOUR=3600000;
 module.exports=class DataService{
@@ -10,12 +9,12 @@ module.exports=class DataService{
   this.status={running:false,phase:null,progress:null,lastRun:null,errors:{},results:{},gaps:[],stats:null,lastBackup:null};
   this.garmin=new GarminConnect(()=>changed());this.cache=new Map();}
  async init(){
-  [this.store,this.ns,this.gaps,this.gc,this.time,this.clarity,this.tplan]=await Promise.all(['../shared/store.mjs','../shared/sync/nightscout.mjs','../shared/sync/gaps.mjs','../shared/sync/garmin-connect.mjs','../shared/analysis/time.mjs','../shared/sync/clarity.mjs','../shared/sync/tandem.mjs'].map(m=>import(m)));
+  [this.store,this.ns,this.gaps,this.gc,this.time,this.clarity]=await Promise.all(['../shared/store.mjs','../shared/sync/nightscout.mjs','../shared/sync/gaps.mjs','../shared/sync/garmin-connect.mjs','../shared/analysis/time.mjs','../shared/sync/clarity.mjs'].map(m=>import(m)));
   this.db=this.store.openStore(this.file);this.refreshStats();
  }
  tz(){return this.time.defaultZone();}
  refreshStats(){try{this.status.stats=this.db.stats();this.status.gaps=this.db.gaps().slice(-20).reverse();}catch{}}
- publicStatus(){const c=this.config(),t=c.tandem||{};return {...this.status,tandem:{enabled:!!t.enabled,configured:!!(t.command&&t.cwd)},garmin:{...this.garmin.state,enabled:!!c.garminConnect}};}
+ publicStatus(){const c=this.config();return {...this.status,garmin:{...this.garmin.state,enabled:!!c.garminConnect}};}
  // Fortschritt höchstens zweimal pro Sekunde melden (jede Meldung erreicht Dashboard, Webansicht und Notch).
  set(patch){Object.assign(this.status,patch);const now=Date.now();if(now-(this.emitted||0)>=500){this.emitted=now;this.changed();}else if(!this.pending)this.pending=setTimeout(()=>{this.pending=null;this.emitted=Date.now();this.changed();},500);}
  start(){this.boot=setTimeout(()=>this.run('start'),15000);this.timer=setInterval(()=>this.run('stündlich'),HOUR);}
@@ -26,38 +25,13 @@ module.exports=class DataService{
   try{
    if(c.source==='nightscout'&&c.url)await this.step('nightscout',()=>this.ns.syncNightscout({url:c.url,token:this.token(),store:this.db,now,backfillDays,onProgress:p=>this.set({progress:p})}));
    await this.step('lücken',async()=>this.detectGaps(from,now));
-   if(c.tandem?.enabled){await this.step('tandem',()=>this.syncPump(c,backfillDays));await this.step('lücken',async()=>this.detectGaps(from,now));await this.step('tandem-lücken',()=>this.fillGaps(c));}
    if(c.garminConnect)await this.step('garmin',()=>this.garmin.sync({store:this.db,gc:this.gc,today:this.time.dayKey(now,this.tz()),addDays:this.time.addDays,dayStart:this.time.dayStart,tz:this.tz(),backfillDays,onProgress:p=>this.set({progress:p})}));
    await this.step('sicherung',()=>this.backup());
   }finally{this.cache.clear();this.refreshStats();this.set({running:false,phase:null,progress:null,lastRun:Date.now()});}
  }
  detectGaps(from,to){
-  const list=this.gaps.detectGaps(this.db.glucoseTimes(from,to),{from,to,tz:this.tz(),tried:this.tried(),now:Date.now()});
-  this.db.saveGaps(list);return {open:list.filter(g=>g.status!=='nicht verfügbar').length,unavailable:list.filter(g=>g.status==='nicht verfügbar').length};
- }
- // Pumpendaten regulär: tconnectsync für die Tage seit dem letzten Erfolg, danach Nightscout dort neu einlesen.
- async syncPump(c,backfillDays){
-  const tz=this.tz(),today=this.time.dayKey(Date.now(),tz),st=this.db.state('tandem-sync');
-  const runs=this.tplan.planTandem({cursor:st.detail||null,today,backfillDays,addDays:this.time.addDays});
-  for(const r of runs){
-   this.set({progress:{kind:'tandem',...r}});
-   await tandem.sync(c.tandem,{...r,features:this.tplan.FEATURES});
-   await this.ns.syncNightscout({url:c.url,token:this.token(),store:this.db,from:this.time.dayStart(r.start,tz)-HOUR,to:this.time.dayStart(this.time.addDays(r.end,1),tz)+HOUR});
-   this.db.setState('tandem-sync',{detail:r.end,last_ok:Date.now(),last_error:null});
-  }
-  return {runs:runs.length,until:runs.at(-1)?.end??st.detail};
- }
- tried(){try{return JSON.parse(this.db.state('tandem').detail||'{}');}catch{return {};}}
- // Lücken über Tandem Source schließen: tconnectsync für die betroffenen Tage, danach Nightscout dort neu einlesen.
- async fillGaps(c){
-  const tz=this.tz(),runs=this.gaps.planBackfill(this.db.gaps(),{tz,tried:this.tried()});if(!runs.length)return {runs:0};
-  for(const r of runs){
-   this.set({progress:{kind:'tandem',...r}});
-   // Versuch zählen, auch wenn tconnectsync scheitert; Einträge älter als 400 Tage verwerfen.
-   try{await tandem.backfill(c.tandem,r);}finally{const old=this.time.dayKey(Date.now()-400*DAY,tz),t=Object.fromEntries(Object.entries(this.gaps.markTried(this.tried(),[r])).filter(([d])=>d>=old));this.db.setState('tandem',{detail:t,last_ok:Date.now()});}
-   await this.ns.syncNightscout({url:c.url,token:this.token(),store:this.db,from:this.time.dayStart(r.start,tz)-HOUR,to:this.time.dayStart(this.time.addDays(r.end,1),tz)+HOUR});
-  }
-  const now=Date.now();this.detectGaps(now-(c.backfillDays||180)*DAY,now);return {runs:runs.length};
+  const list=this.gaps.detectGaps(this.db.glucoseTimes(from,to),{from,to,now:Date.now()});
+  this.db.saveGaps(list);return {open:list.length};
  }
  backup(){
   const dir=path.join(this.dir,'backups'),today=this.time.dayKey(Date.now(),this.tz()),file=path.join(dir,`haze-${today}.db`);
@@ -84,6 +58,5 @@ module.exports=class DataService{
   });
   this.cache.set(key,job);job.catch(()=>this.cache.delete(key));return job;
  }
- checkTandem(){return tandem.checkLogin(this.config().tandem);}
  close(){clearTimeout(this.boot);clearTimeout(this.pending);clearInterval(this.timer);this.garmin.dispose();try{this.db?.close();}catch{}}
 };

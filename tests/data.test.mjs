@@ -4,8 +4,7 @@ import {openStore,backupsToDelete} from '../shared/store.mjs';
 import {syncNightscout,mapTreatment,mapEntry} from '../shared/sync/nightscout.mjs';
 import {parseClarity,parseCsv} from '../shared/sync/clarity.mjs';
 import {normalizeDay,activities,planDays,gmt} from '../shared/sync/garmin-connect.mjs';
-import {detectGaps,planBackfill,markTried} from '../shared/sync/gaps.mjs';
-import {planTandem} from '../shared/sync/tandem.mjs';
+import {detectGaps} from '../shared/sync/gaps.mjs';
 import {addDays} from '../shared/analysis/time.mjs';
 const tz='Europe/Berlin',T0=Date.UTC(2026,5,1,22),MIN=60000,HOUR=3600000,DAY=86400000;
 const tmp=()=>path.join(fs.mkdtempSync(path.join(os.tmpdir(),'haze-')),'haze.db');
@@ -99,24 +98,10 @@ test('Garmin-Tagesplan: letzte 3 Tage immer, dann Fehlendes rückwärts, mit Bud
  const p=planDays({today:'2026-10-07',done,backfillDays:10,budget:5,addDays});
  assert.deepEqual(p,['2026-10-07','2026-10-06','2026-10-05','2026-10-04','2026-10-01']);
 });
-test('Lücken: erkennen, Tagesbereiche für tconnectsync, nach zwei Versuchen je Tag aufgeben',()=>{
+test('Lücken: erkennen, kurze Aussetzer ignorieren, offenes Ende bis jetzt',()=>{
  const times=[];for(let t=T0;t<T0+DAY;t+=5*MIN)times.push(t);for(let t=T0+3*DAY;t<T0+4*DAY;t+=5*MIN)times.push(t);
- const now=T0+10*DAY,opt={from:T0,to:T0+4*DAY,tz,now};
- const g=detectGaps(times,opt);assert.equal(g.length,1);assert.equal(g[0].status,'offen');
- const runs=planBackfill(g,{tz,now});assert.deepEqual(runs,[{start:'2026-06-02',end:'2026-06-04'}]);
- let tried=markTried({},runs);assert.equal(detectGaps(times,{...opt,tried})[0].status,'angefragt');
- tried=markTried(tried,runs);assert.equal(detectGaps(times,{...opt,tried})[0].status,'nicht verfügbar');
- assert.deepEqual(planBackfill(detectGaps(times,{...opt,tried}),{tz,tried,now}),[]);
- assert.deepEqual(planBackfill(detectGaps(times,{...opt,now:T0+DAY+HOUR}),{tz,now:T0+DAY+HOUR}),[],'zu frisch: Pumpe lädt noch hoch');
- // Lange Lücke (vor Beginn der Aufzeichnung): Neueste Tage zuerst, höchstens 3 × 7 Tage pro Lauf, rückt mit jedem Versuch weiter.
- const long=[{start:T0-60*DAY,end:T0,minutes:0}];const r1=planBackfill(long,{tz,now});
- assert.equal(r1.length,3);assert.equal(r1[0].end,'2026-06-01');assert.equal(r1.reduce((n,r)=>n+(Date.parse(r.end)-Date.parse(r.start))/DAY+1,0),21);
- let t2=markTried(markTried({},r1),r1);const r2=planBackfill(long,{tz,now,tried:t2});assert.ok(r2[0].end<r1.at(-1).start,'nächster Lauf setzt früher an');
-});
-test('tconnectsync-Plan: erst rückwärts befüllen, dann ab Cursor mit einem Tag Überlappung',()=>{
- const first=planTandem({today:'2026-10-07',backfillDays:180,addDays});
- assert.deepEqual(first[0],{start:'2026-04-11',end:'2026-04-17'});assert.equal(first.length,3);
- assert.deepEqual(planTandem({cursor:'2026-10-06',today:'2026-10-07',addDays}),[{start:'2026-10-05',end:'2026-10-07'}]);
- assert.deepEqual(planTandem({cursor:'2026-10-07',today:'2026-10-07',addDays}),[{start:'2026-10-06',end:'2026-10-07'}]);
- assert.equal(planTandem({cursor:'2020-01-01',today:'2026-10-07',backfillDays:30,addDays})[0].start,'2026-09-08');
+ const g=detectGaps(times,{from:T0,to:T0+4*DAY,now:T0+10*DAY});
+ assert.equal(g.length,1);assert.equal(g[0].status,'offen');assert.equal(g[0].end,T0+3*DAY);assert.equal(g[0].minutes,Math.round((2*DAY+5*MIN)/MIN));
+ assert.equal(detectGaps([T0,T0+20*MIN,T0+40*MIN],{from:T0,to:T0+45*MIN,now:T0+45*MIN}).length,0,'20 min Aussetzer < 30 min');
+ const open=detectGaps(times,{from:T0,to:T0+10*DAY,now:T0+5*DAY});assert.equal(open.at(-1).end,T0+5*DAY);
 });

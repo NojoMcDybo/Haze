@@ -6,8 +6,6 @@ export function normalize(raw,now=Date.now()){
  const byTime=new Map();let rejected=0,future=0;
  if(!Array.isArray(raw))throw Error('Ungültige Antwort von Nightscout.');
  for(const r of raw){const t=Number(r.date??r.time??Date.parse(r.dateString));const v=Number(r.sgv??r.value);
- // Von tconnectsync nachgeholte Pumpenwerte (> 30 min verzögert) nur für die Analyse, nicht für die Live-Anzeige.
- if(/tconnect/i.test(String(r.device||'')))continue;
  if(t>now){future++;continue;}
  if(!Number.isFinite(t)||t<=0||!Number.isFinite(v)||v<20||v>600||(r.type&&r.type!=='sgv')){rejected++;continue;}
  byTime.set(t,{time:t,value:v,trend:Object.hasOwn(arrows,r.direction??r.trend)?(r.direction??r.trend):null});}
