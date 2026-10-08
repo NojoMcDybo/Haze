@@ -1,6 +1,6 @@
 # Plan: Haze 2.0 – Datensammlung, Nachsynchronisierung und Analyse
 
-Stand: 7. Oktober 2026 (abends) · Status: Phase 1–4 umgesetzt (ungemergt, Branch `claude/plan-datenanalyse`); Garmin mit echtem Konto geprüft; tconnectsync und echter Clarity-Export noch offen
+Stand: 8. Oktober 2026 · Status: Phase 1–4 umgesetzt (PRs #16–#18); Garmin mit echtem Konto geprüft; Tandem auf Nojos Wunsch aus Sicherheitsgründen entfernt (Abschnitt 6); echter Clarity-Export noch offen
 
 ## Umsetzungsstand
 
@@ -8,15 +8,14 @@ Stand: 7. Oktober 2026 (abends) · Status: Phase 1–4 umgesetzt (ungemergt, Bra
 |---|---|---|
 | Analyse-Engine | `shared/analysis/` (time, stats, glucose, artifacts, context, insights, index, synthetic) | fertig, getestet |
 | Datenbank `haze.db` | `shared/store.mjs` (node:sqlite, WAL, Rohdaten-Tabelle, Sicherung 7 Tage + 8 Wochen) | fertig, getestet, in Electron geprüft |
-| Nightscout-Historie | `shared/sync/nightscout.mjs` (Fenster, Cursor, tconnectsync-Formate) | getestet mit Attrappe; echte Instanz offen |
-| Lücken | `shared/sync/gaps.mjs` (pro Tag, max. 2 Versuche) | fertig, getestet |
-| Tandem | `shared/sync/tandem.mjs`, `desktop/tandem.cjs` (Haze startet tconnectsync stündlich + für Lücken mit `CGM`) | gebaut; braucht tconnectsync + .env |
+| Nightscout-Historie | `shared/sync/nightscout.mjs` (Fenster, Cursor, Careportal-Behandlungen) | getestet mit Attrappe; echte Instanz offen |
+| Lücken | `shared/sync/gaps.mjs` (Erkennung; Nachholen per Clarity-Import) | fertig, getestet |
 | Clarity-Import | `shared/sync/clarity.mjs` | getestet mit Beispieldateien; echte Datei offen |
 | Garmin Connect | `shared/sync/garmin-connect.mjs`, `desktop/garmin-connect.cjs`, Spike `spikes/garmin-connect.cjs` | **mit echtem Konto geprüft** (7. Okt.): Web-API `connect.garmin.com/gc-api/` + Header der Web-App (Connect-Csrf-Token), Abruf nur im Seitenkontext (Hauptprozess: 403), Sitzung bleibt erhalten; 5 Tage in 36 s; 180 Tage zurück verfügbar; 7 Nächte am Stück ohne Bremse |
 | Hintergrunddienst | `desktop/data.cjs`, `desktop/analysis-worker.mjs`, Anbindung in `desktop/main.cjs` | im Testmodus der echten App geprüft |
 | Oberfläche | `src/Analysis.tsx` (Auswertung im Dashboard), `src/Data.tsx` (Einstellungen › Daten), `src/analysis.css` | Vorschau geprüft (hell/dunkel, 375 px) |
 
-Bekannte Grenzen: Hinweistexte nennen Glukose immer in mg/dL; Nightscout zeigt in Tagen mit nachgeholten Pumpenwerten doppelte Punkte (Haze selbst nicht); Kompressionstief-Erkennung ist eine Heuristik.
+Bekannte Grenzen: Hinweistexte nennen Glukose immer in mg/dL; ohne Pumpendaten fehlen Insulin, Kohlenhydrate sowie Schlaf- und Sportmodus (die Auswertung weist darauf hin); Kompressionstief-Erkennung ist eine Heuristik.
 
 
 Ziel: Glukose (Dexcom über Nightscout) mit Bewegung, Schlaf, Stress und Puls (Garmin Forerunner 265) zusammenführen, Lücken nach PC-Pausen automatisch nachholen und daraus belastbare Auswertungen machen.
@@ -76,12 +75,12 @@ Ob das mit Garmins aktuellen Web-Endpunkten sauber klappt, ist **noch nicht bewi
 
 ## 3. Lücken, die geschlossen werden müssen
 
-1. **Glukose-Lücken nach mehr als 24 h PC-Pause.** Das ist die größte Lücke. → entschieden: über Tandem Source nachholen (Abschnitt 6). Ursprünglich geprüfte Optionen:
+1. **Glukose-Lücken nach mehr als 24 h PC-Pause.** Das ist die größte Lücke. → entschieden: per **Clarity-CSV-Import** nachholen (Tandem verworfen, Abschnitt 6). Geprüfte Optionen:
    - a) Nightscout dauerhaft laufen lassen (Raspberry Pi, kleiner Server). Das ist die einfachste echte Lösung, weil Share dann rund um die Uhr abgefragt wird.
    - b) Lücken per **Clarity-CSV-Import** in Haze nachtragen (ohne Freigabe, manuell).
    - c) **Dexcom API v3** automatisch für Lücken älter als 3 h (Antrag nötig).
    - d) Upload direkt vom Handy (xDrip+/Juggluco unter Android). Das hängt von Sensor und Handy ab.
-2. **Keine Mahlzeiten- und Insulindaten.** Ohne sie wird jede Aussage wie „nach Sport fällt der Wert“ von Essen und Insulin überlagert. → gelöst über die t:slim X2 und Tandem Source (Abschnitt 6).
+2. **Keine Mahlzeiten- und Insulindaten.** Ohne sie wird jede Aussage wie „nach Sport fällt der Wert“ von Essen und Insulin überlagert. → bleibt offen: Der Weg über Tandem Source wurde aus Sicherheitsgründen verworfen (Abschnitt 6). Die Auswertung nennt das als Störfaktor.
 3. **Keine Datenbank, keine Historie in Haze.**
 4. **Garmin-Daten jenseits des Live-Pulses fehlen.**
 5. **Keine Sicherung** der Nightscout-MongoDB und künftig der Haze-Datenbank.
@@ -96,7 +95,6 @@ Ob das mit Garmins aktuellen Web-Endpunkten sauber klappt, ist **noch nicht bewi
 
 ```
 Dexcom Share ─► Nightscout (lokal/Server) ─┐
-Tandem Source ─► tconnectsync ─► Nightscout ┤
 Clarity-CSV / Dexcom API v3 (Lücken) ──────┤
 Garmin Connect (Chromium-Sitzung) ─────────┼─► Sync-Engine ─► haze.db (SQLite) ─► Analyse-Engine ─► Dashboard / Analyse / Webansicht
 Garmin USB-FIT / DSGVO-Export ─────────────┤        ▲                                │
@@ -161,42 +159,34 @@ Jede Phase entspricht einem oder mehreren PRs. `desktop/main.cjs`, `src/main.tsx
 
 | Phase | Version | Inhalt | Ergebnis |
 |---|---|---|---|
-| **0 – Spikes** | – | ~~`node:sqlite` in Electron 44 prüfen~~ (erledigt, läuft); Garmin-Login in Electron-Fenster + Abruf eines Tages Schlaf/Stress; Clarity-CSV-Format anhand eines echten Exports; `tconnectsync` einmal gegen Tandem Source EU laufen lassen (Bolus/KH, Modi, CGM für einen Zeitraum) | Garmin-Weg bestätigt, keine Produktänderung |
-| **1 – Datenspeicher + Glukose + Pumpe** | 1.5 | `haze.db`, Schema, Sicherung; Nightscout-Sync mit Cursor (entries, treatments, devicestatus, profile); `tconnectsync` im Nightscout-Start; Lückentabelle + Nachholen aus Tandem Source; Clarity-CSV-Import; TIR zeitgewichtet | Glukose-Historie lückenarm und lokal |
+| **0 – Spikes** | – | ~~`node:sqlite` in Electron 44 prüfen~~ (erledigt); ~~Garmin-Login und Abruf~~ (erledigt); Clarity-CSV-Format anhand eines echten Exports | Garmin-Weg bestätigt |
+| **1 – Datenspeicher + Glukose** | 1.5 | `haze.db`, Schema, Sicherung; Nightscout-Sync mit Cursor (entries, treatments, profile); Lückentabelle; Clarity-CSV-Import; TIR zeitgewichtet | Glukose-Historie lokal, Lücken per Clarity |
 | **2 – Garmin** | 1.6 | Garmin-Anbindung (gewählter Weg), Rückwärts-Befüllung, tägliche Überlappung, Bluetooth-Puls in die Datenbank; DSGVO-Import als Erstbefüllung | Bewegung, Schlaf und Stress in derselben Datenbank |
 | **3 – Analyse-Engine** | 1.7 | Stufe 1 + 2 in `shared/analysis/`, vollständig getestet | belastbare Kennzahlen |
 | **4 – Analyse-Oberfläche** | 2.0 | Analyse-Bereich, Tagesansicht, Zusammenhänge (Stufe 3), Datenstatus, Export | sichtbarer Mehrwert |
-| optional | – | Dexcom API v3 (Alarme, Sensorsitzungen, Lücken), falls Tandem Source und Clarity nicht reichen | – |
+| optional | – | Dexcom API v3 (Alarme, Sensorsitzungen, Lücken automatisch), falls der manuelle Clarity-Import zu mühsam ist | – |
 
 ---
 
-## 6. Entscheidungen (7. Oktober 2026)
+## 6. Entscheidungen (7./8. Oktober 2026)
 
 | Frage | Entscheidung | Folge für den Plan |
 |---|---|---|
-| Glukose-Lücken | **lokal bleiben, Lücken nachholen** | Hauptquelle zum Nachholen ist **Tandem Source** (siehe unten), Clarity-CSV als Handweg, Dexcom API v3 nur noch optional |
+| Glukose-Lücken | **lokal bleiben, Lücken nachholen** | per **Clarity-CSV-Import**; Dexcom API v3 optional |
 | Garmin | **Anmeldung im Haze-Fenster** (Garmin Connect über Chromium) | USB-FIT entfällt als eigener Weg; der DSGVO-Export bleibt für die Erstbefüllung |
-| Therapie | **Tandem t:slim X2** (Control-IQ) | Bolus, Basal, Pumpenereignisse, Profile und die G7-Werte der Pumpe kommen aus Tandem Source |
+| Therapie | **Tandem t:slim X2** (Control-IQ) | **keine Anbindung** (8. Okt., Sicherheitsgründe, siehe unten); Pumpendaten fehlen in der Auswertung |
 | Sensor / Handy | **Dexcom G7, iPhone** | kein xDrip+/Juggluco-Uploader. Apple Health ist von Windows aus nicht erreichbar. Share bleibt die Live-Quelle |
 
 Geprüft: `node:sqlite` läuft in der Electron-44-Laufzeit (Node 24.21, SQLite 3.53) ohne Flag. Damit braucht die Datenbank kein natives Modul.
 
-### Tandem t:slim X2 über Tandem Source
+### Tandem: verworfen (8. Oktober 2026)
 
-- Die **t:slim-App** (in Deutschland seit Mai 2026 auch für iPhone) lädt die Pumpendaten **stündlich** nach Tandem Source, unabhängig vom PC. Tandem Source hat damit die komplette Historie.
-- **`tconnectsync`** (MIT, aktiv gepflegt, v3.0.3 vom 1. Okt. 2026, Region `EU` einstellbar, läuft laut README auch nativ unter Windows) holt diese Daten und schreibt sie in **das lokale Nightscout**. Haze holt sie dort wie alles andere ab. Die Haze-Architektur bleibt also gleich.
-- Was kommt: `BASAL`, `BOLUS`, `PUMP_EVENTS` (Alarme, Unterbrechung/Fortsetzung, Kartuschen- und Katheterwechsel, **Schlaf- und Sportmodus**), `PROFILES` (Basalraten, Korrekturfaktor, KH-Faktor). Optional `CGM`: die G7-Werte, die die Pumpe empfangen hat, mit mehr als 30 min Verzögerung.
-- **Damit schließen sich die Glukose-Lücken ohne Dexcom-Antrag:** Nach einer PC-Pause holt Haze für die Lücke die Pumpen-CGM-Werte. Live bleibt Share. In `haze.db` gewinnt bei gleichem Zeitpunkt (± 2,5 min) Share; Pumpenwerte füllen nur Lücken. Damit Nightscout selbst keine doppelten Kurven zeigt, läuft `tconnectsync` dauerhaft **ohne** `CGM`. Die CGM-Werte holt Haze nur für Lückenzeiträume (Weg im Spike klären: eigener `tconnectsync`-Lauf mit Zeitraum oder direkter Abruf).
-- **Schlaf- und Sportmodus** sind für die Analyse wertvoll: Sie markieren, wann Control-IQ anders regelt. Ohne diese Information würden Sport- und Nachtvergleiche verzerrt.
-- Kohlenhydrate stehen in den Bolusdaten (Bolusrechner). Ob `tconnectsync` sie als eigenes Feld überträgt, prüft der Spike.
-- Einrichtung (macht Nojo selbst, weil `pip install` aus Claude-Befehlen im App-Container landen kann): `pip install tconnectsync`, eigener Ordner mit `.env` (Tandem-Zugang, `TCONNECT_REGION=EU`, `TIMEZONE_NAME=Europe/Berlin`, `NS_URL=http://127.0.0.1:1337`, `NS_SECRET` = Nightscout-`API_SECRET`). **Kein Dauerprozess:** Haze startet tconnectsync bei jedem Abgleich selbst (`--start-date/--end-date`, Features `BASAL BOLUS PUMP_EVENTS PROFILES CGM_ALERTS`; für Lücken `CGM`). Pfad zu `tconnectsync.exe` und Ordner in Einstellungen › Daten eintragen.
-- Risiken: Tandem Source ist eine inoffizielle Schnittstelle. Der Autor hat nur US-Zeitzonen getestet. Python 3.14 ist neu; falls Pakete fehlen, die vorhandene 3.11 nehmen.
-- Später möglich: Tandem-Abruf direkt in Haze nachbauen (MIT erlaubt das), dann fällt Python weg. Erst sinnvoll, wenn der Python-Weg stabil läuft und die Datenformate bekannt sind.
+Geprüft war `tconnectsync` (Tandem Source → lokales Nightscout, gestartet von Haze). Nojo hat sich aus Sicherheitsgründen dagegen entschieden:
+- Das Tandem-Passwort hätte im Klartext in einer `.env` liegen müssen.
+- tconnectsync hätte mit dem Nightscout-`API_SECRET` volle Schreibrechte auf Nightscout gebraucht.
+- Tandem Source ist eine inoffizielle Schnittstelle.
 
-### Neue Reihenfolge zum Nachholen von Glukose
-1. Tandem Source (automatisch, etwa 1 h Verzögerung durch den stündlichen Upload)
-2. Clarity-CSV-Import (manuell; deckt auch Zeiten ab, in denen die Pumpe keine Sensorwerte bekam)
-3. Dexcom API v3 (optional, nur falls 1 und 2 nicht reichen)
+Haze enthält deshalb keinen tconnectsync-Start und keine Tandem-Einstellungen. Nightscout-Behandlungen, die auf anderem Weg entstehen (z. B. Careportal), liest Haze weiterhin. Folgen: Lücken werden per Clarity-Import nachgeholt; Insulin, Kohlenhydrate sowie Schlaf- und Sportmodus der Pumpe fehlen, was die Auswertung als Störfaktor nennt.
 
 ### Rückblick
 - **180 Tage** (entschieden), in Einstellungen › Daten änderbar (30/90/180/365).
@@ -204,5 +194,5 @@ Geprüft: `node:sqlite` läuft in der Electron-44-Laufzeit (Node 24.21, SQLite 3
 ## Quellen
 - Dexcom API v3: [Endpunkte](https://developer.dexcom.com/docs/dexcomv3/endpoint-overview), [dataRange](https://developer.dexcom.com/docs/dexcomv3/operation/getDataRangeV3), [Zugangsstufen](https://developer.dexcom.com/docs/dexcom/scopes-access/), [Überblick inkl. Verzögerung](https://themomentum.ai/blog/dexcom-api-integration-developer-guide)
 - [nightscout-connect](https://github.com/bewest/nightscout-connect)
-- Tandem: [tconnectsync](https://github.com/jwoglom/tconnectsync), [t:slim-App in Deutschland](https://www.drugdeliverybusiness.com/tandem-launches-tslim-mobile-app-european-countries/), [Datenaustausch App ↔ Tandem Source](https://www.tandemdiabetes.com/support-center/software-and-apps/tandem-source/article/data-sharing-between-tslim-mobile-and-tandem-source)
+- Tandem (verworfen): [tconnectsync](https://github.com/jwoglom/tconnectsync)
 - Garmin: [garth (eingestellt)](https://garth.readthedocs.io/en/latest/), [python-garminconnect](https://github.com/cyberjunky/python-garminconnect), [GarminDB-Diskussion zu lokalen FIT-Dateien](https://github.com/tcgoetz/GarminDB/discussions/156), [Garmin-Exportleitfaden](https://www.gneta.app/blog/export-garmin-data-guide), [FIT-JavaScript-SDK](https://www.npmjs.com/package/@garmin/fitsdk)
