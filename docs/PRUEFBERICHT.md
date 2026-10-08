@@ -138,7 +138,6 @@ Plan und Entscheidungen: `docs/PLAN-DATENANALYSE.md`.
 
 ### Offen (braucht Zugangsdaten oder echten Desktop)
 
-- tconnectsync gegen Tandem Source EU: `--check-login`, Lauf mit `--features CGM` für einen Zeitraum, deutsche Zeitzone.
 - Nightscout-Sync gegen die echte lokale Instanz (lief bei der Prüfung nicht).
 - Clarity-Export mit echter Datei (deutsche Spaltennamen sind aus Erfahrungswerten abgeleitet).
 - Dateidialoge (Clarity-Import, Pfadwahl) und Garmin-Fenster nur auf dem echten Desktop prüfbar.
@@ -150,3 +149,7 @@ Plan und Entscheidungen: `docs/PLAN-DATENANALYSE.md`.
 - `shared/sync/garmin-connect.mjs` gegen die echten Antworten: keine fehlenden Felder; Schlafphasen-Kodierung (0 tief, 1 leicht, 2 REM, 3 wach) minutengenau gleich den Garmin-Summen; Body-Battery- und Stressspalten jetzt über die Deskriptor-Listen der Antwort.
 - `desktop/garmin-connect.cjs` Ende-zu-Ende in Electron mit der gespeicherten Sitzung: 5 Tage in 36 s nach `haze.db` (5 Tage, 5 Nächte, 109 Schlafphasen, 3276 Pulswerte, 4451 Stress/Body-Battery/Schritt-Werte). Aktivitätenliste über ein Jahr: 21 Läufe, Format passt.
 - Rohantworten und Testsitzung liegen außerhalb des Repos unter `D:\Dev\_spike-data\garmin`.
+
+### Tandem entfernt (8. Oktober 2026)
+
+Auf Nojos Wunsch aus Sicherheitsgründen: kein tconnectsync-Start, keine Tandem-Einstellungen, keine Tandem-Lückenplanung (`desktop/tandem.cjs`, `shared/sync/tandem.mjs` gelöscht). Lücken werden erkannt und per Clarity-Import gefüllt. `npm test` danach 74 grün, `npx tsc --noEmit` und Build fehlerfrei.
