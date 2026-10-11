@@ -3,7 +3,7 @@ import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
 import {openStore,backupsToDelete} from '../shared/store.mjs';
 import {syncNightscout,mapTreatment,mapEntry} from '../shared/sync/nightscout.mjs';
 import {parseClarity,parseCsv} from '../shared/sync/clarity.mjs';
-import {normalizeDay,activities,planDays,gmt} from '../shared/sync/garmin-connect.mjs';
+import {normalizeDay,activities,planFetch,activityDetails,stripLocation,reprocess,gmt} from '../shared/sync/garmin-connect.mjs';
 import {detectGaps} from '../shared/sync/gaps.mjs';
 import {addDays} from '../shared/analysis/time.mjs';
 const tz='Europe/Berlin',T0=Date.UTC(2026,5,1,22),MIN=60000,HOUR=3600000,DAY=86400000;
@@ -11,7 +11,7 @@ const tmp=()=>path.join(fs.mkdtempSync(path.join(os.tmpdir(),'haze-')),'haze.db'
 
 test('Datenbank: Schema, Upsert ohne Duplikate, Laden für die Analyse, Sicherung',()=>{
  const file=tmp(),s=openStore(file);
- assert.equal(s.get('pragma user_version').user_version,2);
+ assert.equal(s.get('pragma user_version').user_version,3);
  s.upsert('glucose',[{time:T0,value:100,source:'share'},{time:T0,value:101,source:'share'},{time:T0+60000,value:99,source:'pump'}]);
  s.upsert('activity',[{id:'a',start:T0,end:T0+HOUR,type:'running',avgHr:140}]);
  s.upsert('daily',[{date:'2026-06-02',steps:1000,intensityMinutes:30}]);
@@ -93,10 +93,45 @@ test('Garmin: Tagesdaten, Schlaf mit Phasen, Stress, Body Battery, Aktivitäten 
  assert.equal(a[0].start,gmt('2026-06-02 15:00:00'));assert.equal(a[0].end-a[0].start,45*MIN);assert.equal(a[0].id,'garmin:9');
  assert.deepEqual(normalizeDay('x',{}),{daily:[],sleep:[],stages:[],series:[],hr:[]});
 });
-test('Garmin-Tagesplan: letzte 3 Tage immer, dann Fehlendes rückwärts, mit Budget',()=>{
- const done=new Set(['2026-10-03','2026-10-02']);
- const p=planDays({today:'2026-10-07',done,backfillDays:10,budget:5,addDays});
- assert.deepEqual(p,['2026-10-07','2026-10-06','2026-10-05','2026-10-04','2026-10-01']);
+test('Garmin-Abrufplan: letzte 3 Tage komplett, ältere nur fehlende oder vorläufige Datenarten',()=>{
+ const kinds=['daily','sleep','readiness'],settledAt=d=>Date.parse(d)+4*DAY;
+ const raw={daily:{'2026-10-03':Date.parse('2026-10-09'),'2026-10-02':Date.parse('2026-10-09'),'2026-10-01':Date.parse('2026-10-02')},sleep:{'2026-10-03':Date.parse('2026-10-09'),'2026-10-02':Date.parse('2026-10-09'),'2026-10-01':Date.parse('2026-10-09')},readiness:{'2026-10-03':Date.parse('2026-10-09')}};
+ const p=planFetch({today:'2026-10-07',backfillDays:7,budget:10,addDays,kinds,fetched:(k,d)=>raw[k][d]??null,settledAt});
+ assert.deepEqual(p.slice(0,3).map(x=>x.kinds.length),[3,3,3],'Überlappung komplett');
+ assert.deepEqual(p.find(x=>x.date==='2026-10-03'),undefined,'fertiger Tag wird übersprungen');
+ assert.deepEqual(p.find(x=>x.date==='2026-10-02').kinds,['readiness'],'nur die neue Datenart');
+ assert.deepEqual(p.find(x=>x.date==='2026-10-01').kinds,['daily','readiness'],'vorläufig abgerufen + neu');
+ assert.equal(planFetch({today:'2026-10-07',backfillDays:180,budget:5,addDays,kinds,fetched:()=>null,settledAt}).length,5);
+});
+test('Garmin zusätzlich: Atmung, SpO2, Bereitschaft, Status, Schlaf-Epochen, Trainingsreihen ohne GPS',()=>{
+ const raw={
+  daily:{calendarDate:'2026-06-02',totalSteps:5000},
+  respiration:{avgWakingRespirationValue:13,respirationValueDescriptorsDTOList:[{index:0,key:'timestamp'},{index:1,key:'respiration'}],respirationValuesArray:[[T0,12],[T0+120000,-2]]},
+  spo2:{averageSpO2:96},
+  readiness:[{timestamp:'2026-06-02T05:00:00.0',score:70,level:'MODERATE',acuteLoad:300,hrvWeeklyAverage:80,recoveryTime:12},{timestamp:'2026-06-02T08:00:00.0',score:85,level:'HIGH',acuteLoad:310,hrvWeeklyAverage:81,recoveryTime:6}],
+  trainingStatus:{mostRecentTrainingStatus:{latestTrainingStatusData:{'1':{primaryTrainingDevice:true,trainingStatusFeedbackPhrase:'PRODUCTIVE_1',acuteTrainingLoadDTO:{dailyTrainingLoadAcute:310,dailyAcuteChronicWorkloadRatio:1.1}}}}},
+  sleep:{dailySleepDTO:{calendarDate:'2026-06-02',sleepStartTimestampGMT:T0-HOUR,sleepEndTimestampGMT:T0+6*HOUR,averageSpO2Value:95,lowestSpO2Value:88,averageRespirationValue:12,avgSleepStress:18,awakeCount:2},restlessMomentsCount:40,bodyBatteryChange:45,
+   hrvData:[{value:60,startGMT:T0}],wellnessEpochRespirationDataDTOList:[{startTimeGMT:T0,respirationValue:11}],wellnessEpochSPO2DataDTOList:[{epochTimestamp:'2026-06-01T22:01:00.0',spo2Reading:94,readingConfidence:3},{epochTimestamp:'2026-06-01T22:02:00.0',spo2Reading:70,readingConfidence:1}]},
+ };
+ const d=normalizeDay('2026-06-02',raw),day=d.daily[0],night=d.sleep[0];
+ assert.deepEqual([day.steps,day.respiration,day.spo2,day.readiness,day.readinessLevel,day.acuteLoad,day.acwr,day.trainingStatus,day.recoveryTime],[5000,13,96,85,'HIGH',310,1.1,'PRODUCTIVE_1',6]);
+ assert.deepEqual([night.spo2,night.spo2Low,night.respiration,night.stress,night.restless,night.bbChange,night.awakeCount],[95,88,12,18,40,45,2]);
+ const kinds=d.series.map(x=>x.kind);assert.ok(kinds.includes('hrv'));assert.equal(d.series.filter(x=>x.kind==='spo2').length,1,'unsichere SpO2-Messung verworfen');
+ assert.equal(d.series.filter(x=>x.kind==='respiration').length,2,'Tag + Nacht, ohne negative Werte');
+ assert.equal(normalizeDay('2026-06-03',{readiness:raw.readiness}).daily[0].readiness,85,'Tageszeile auch ohne Zusammenfassung');
+ const det={metricDescriptors:[{metricsIndex:0,key:'directTimestamp'},{metricsIndex:1,key:'directHeartRate'},{metricsIndex:2,key:'directLatitude'},{metricsIndex:3,key:'directLongitude'},{metricsIndex:4,key:'directSpeed'}],activityDetailMetrics:[{metrics:[T0,140,51.5,7.4,2.9]},{metrics:[T0+1000,0,51.6,7.5,3]}],geoPolylineDTO:{polyline:[{lat:51.5,lon:7.4}]}};
+ const clean=stripLocation(det);assert.equal(clean.geoPolylineDTO,undefined);assert.ok(!JSON.stringify(clean).includes('51.5')&&!JSON.stringify(clean).includes('7.4'));
+ const rows=activityDetails(clean);assert.deepEqual(rows.filter(r=>r.kind==='activity_hr').map(r=>r.value),[140],'Puls 0 verworfen');assert.equal(rows.filter(r=>r.kind==='activity_speed').length,2);
+ assert.ok(rows.every(r=>!/lat|lon/.test(r.kind)));
+});
+test('Garmin: Neuauswertung aus gespeicherten Rohdaten füllt neue Felder ohne Abruf',()=>{
+ const s=openStore(tmp());
+ s.putRaw('garmin','daily','2026-06-02',{calendarDate:'2026-06-02',totalSteps:4000});s.putRaw('garmin','readiness','2026-06-02',[{timestamp:'x',score:77,level:'MODERATE'}]);
+ s.putRaw('garmin','sleep','2026-06-02',{dailySleepDTO:{calendarDate:'2026-06-02',sleepStartTimestampGMT:T0-HOUR,sleepEndTimestampGMT:T0+6*HOUR,averageSpO2Value:95},hrvData:[{value:55,startGMT:T0}]});
+ assert.equal(reprocess(s),1);
+ assert.equal(s.get('select readiness from daily where date=?','2026-06-02').readiness,77);assert.equal(s.get('select spo2 from sleep').spo2,95);
+ assert.equal(s.get("select count(*) n from series where kind='hrv'").n,1);
+ s.setMeta('garmin-normalizer','2');assert.equal(s.meta('garmin-normalizer'),'2');assert.equal(s.meta('fehlt'),null);s.close();
 });
 test('Lücken: erkennen, kurze Aussetzer ignorieren, offenes Ende bis jetzt',()=>{
  const times=[];for(let t=T0;t<T0+DAY;t+=5*MIN)times.push(t);for(let t=T0+3*DAY;t<T0+4*DAY;t+=5*MIN)times.push(t);

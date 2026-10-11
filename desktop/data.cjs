@@ -13,7 +13,10 @@ module.exports=class DataService{
   this.garmin=new GarminConnect(()=>changed());this.cache=new Map();}
  async init(){
   [this.store,this.ns,this.gaps,this.gc,this.time,this.clarity]=await Promise.all(['../shared/store.mjs','../shared/sync/nightscout.mjs','../shared/sync/gaps.mjs','../shared/sync/garmin-connect.mjs','../shared/analysis/time.mjs','../shared/sync/clarity.mjs'].map(m=>import(m)));
-  this.db=this.store.openStore(this.file);this.refreshStats();
+  this.db=this.store.openStore(this.file);
+  // Nach einem Update der Garmin-Aufbereitung die gespeicherten Rohdaten einmal neu auswerten (kein neuer Abruf).
+  if(this.db.meta('garmin-normalizer')!==this.gc.NORMALIZER_VERSION){try{this.gc.reprocess(this.db);this.db.setMeta('garmin-normalizer',this.gc.NORMALIZER_VERSION);}catch{}}
+  this.refreshStats();
  }
  tz(){return this.time.defaultZone();}
  refreshStats(){try{this.status.stats=this.db.stats();this.status.gaps=this.db.gaps().slice(-20).reverse();}catch{}}
