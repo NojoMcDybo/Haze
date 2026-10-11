@@ -153,3 +153,17 @@ Plan und Entscheidungen: `docs/PLAN-DATENANALYSE.md`.
 ### Tandem entfernt (8. Oktober 2026)
 
 Auf Nojos Wunsch aus Sicherheitsgründen: kein tconnectsync-Start, keine Tandem-Einstellungen, keine Tandem-Lückenplanung (`desktop/tandem.cjs`, `shared/sync/tandem.mjs` gelöscht). Lücken werden erkannt und per Clarity-Import gefüllt. `npm test` danach 74 grün, `npx tsc --noEmit` und Build fehlerfrei.
+
+## Branch claude/tandem-sicher-a – 11. Oktober 2026: Tandem sicher (PR A)
+
+Plan: `docs/PLAN-TANDEM-SICHER.md`.
+
+### Bestanden
+- `npm test`: 80 grün, neu `tests/tandem.test.mjs` (6): Pfad-Whitelist; Geheimnis, Host, Größe, JSON; Einmal-Geheimnis und Port je Lauf verschieden; Bolus/Basal/Schlafmodus/Alarm/Katheterwechsel/CGM/Akkustand/Profil landen in `haze.db` mit Quelle „pump“; „letzter Upload“ je eventType und Zeitraum; Löschen ersetzter Modi; erneutes Senden verdoppelt nicht; Protokoll-Maskierung (auch URL-kodiert); Kindumgebung ohne fremde Variablen und ohne Token-Cache; Laufplanung.
+- `npx tsc --noEmit`, Build.
+- Sperrdatei: frische Umgebung mit `--require-hashes --no-deps --only-binary=:all:` installiert tconnectsync 3.0.3, `pip check` ohne Fehler.
+- Echter Ablauf mit `desktop/tandem.cjs` (Node, isolierter Ordner): Installation über Haze in 25 s; `tconnectsync --check-login` gegen den Haze-Empfänger: Nightscout-Teil ohne Fehler, Tandem lehnt den absichtlichen Test-Zugang ab; Passwort und E-Mail nicht im Protokoll; Arbeitsordner danach leer.
+
+### Offen (braucht Nojos Tandem-Zugang)
+- Anmeldung und erster Abgleich mit echtem Konto; Prüfung der übernommenen Bolus-, Modus- und CGM-Daten.
+- Einstellungen › Daten › Tandem in der installierten App (Eingabe, Einrichten, Prüfen, Einschalten).
