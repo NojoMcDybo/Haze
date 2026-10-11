@@ -69,12 +69,13 @@ module.exports=class DataService{
   const now=Date.now();this.detectGaps(now-(this.config().backfillDays||180)*DAY,now);this.cache.clear();this.refreshStats();this.changed();
   return {glucose:r.glucose.length,treatments:r.treatments.length,events:r.deviceEvents.length,from:r.from,to:r.to,skipped:r.skipped};
  }
- analysis({days=14,to}={}){
-  if(![7,14,30,90,180].includes(days))throw Error('Ungültiger Zeitraum');
-  const demo=this.config().source==='demo',end=to??Date.now(),from=end-days*DAY,key=`${demo}:${days}:${Math.floor(end/(5*60000))}`;
+ // kind 'longterm': Wochen, Monate, Trends über bis zu 365 Tage (führende Tage ohne Daten schneidet die Engine ab).
+ analysis({days=14,to,kind='period'}={}){
+  if(kind==='longterm')days=365;else if(![7,14,30,90,180].includes(days))throw Error('Ungültiger Zeitraum');
+  const demo=this.config().source==='demo',end=to??Date.now(),from=end-days*DAY,key=`${kind}:${demo}:${days}:${Math.floor(end/(5*60000))}`;
   if(this.cache.has(key))return this.cache.get(key);
   const job=new Promise((resolve,reject)=>{
-   const w=new Worker(path.join(__dirname,'analysis-worker.mjs'),{workerData:{file:this.file,from,to:end,tz:this.tz(),demo}});
+   const w=new Worker(path.join(__dirname,'analysis-worker.mjs'),{workerData:{file:this.file,from,to:end,tz:this.tz(),demo,kind}});
    const t=setTimeout(()=>{w.terminate();reject(Error('Analyse dauert zu lange.'));},120000);
    w.once('message',m=>{clearTimeout(t);w.terminate();m.ok?resolve(m.result):reject(Error(m.error));});
    w.once('error',e=>{clearTimeout(t);reject(e);});

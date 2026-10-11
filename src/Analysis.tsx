@@ -1,15 +1,20 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {format} from '../shared/model.mjs';
 import './analysis.css';
+import {Longterm} from './Longterm';
 // Auswertung aus haze.db (Analyse-Engine shared/analysis). Beschreibend, keine Therapiehinweise.
 const pct=(v:any,d=0)=>v==null?'—':v.toLocaleString('de-DE',{maximumFractionDigits:d,minimumFractionDigits:d});
-const date=(t:number)=>new Date(t).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'});
 const dateKey=(k:string)=>{const [y,m,d]=k.split('-');return `${d}.${m}.`;};
 const hhmm=(min:number)=>`${String(Math.floor(min/60)).padStart(2,'0')}:${String(min%60).padStart(2,'0')}`;
 const SPORT:any={running:'Laufen',cycling:'Radfahren',road_biking:'Rennrad',mountain_biking:'Mountainbike',indoor_cycling:'Indoor-Rad',walking:'Gehen',hiking:'Wandern',strength_training:'Krafttraining',lap_swimming:'Schwimmen',open_water_swimming:'Freiwasser',yoga:'Yoga',cardio:'Cardio',hiit:'HIIT',treadmill_running:'Laufband',soccer:'Fußball',tennis:'Tennis',sonstige:'Sonstige'};
 const BANDS=[['veryLow','unter 54'],['low','54–69'],['target','70–180'],['high','181–250'],['veryHigh','über 250']];
+// Fehlergrenze: Ein Fehler in der Auswertung darf nie das Dashboard mit dem aktuellen Wert leeren.
+class Guard extends React.Component<{children:React.ReactNode},{error:string}>{
+ state={error:''};static getDerivedStateFromError(e:any){return {error:String(e?.message||e)};}
+ render(){return this.state.error?<div className="notice n-liquid panel" role="status">Dieser Teil der Auswertung konnte nicht angezeigt werden ({this.state.error}).</div>:this.props.children;}
+}
 // active: Seite sichtbar. Geladen wird erst beim ersten Öffnen der Seite, danach bei neuen Daten.
-export function Analysis({state,load,unit,active=true}:any){
+export function Analysis({state,load,loadLong,unit,active=true}:any){
  const [days,setDays]=useState(14),[res,setRes]=useState<any>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const lastRun=state.data?.lastRun,source=state.config.source;
  const opened=useRef(false);if(active)opened.current=true;
@@ -20,7 +25,7 @@ export function Analysis({state,load,unit,active=true}:any){
    <div className="segmented" role="group" aria-label="Zeitraum der Auswertung">{[14,30,90].map(d=><button key={d} aria-pressed={days===d} className={days===d?'active':''} onClick={()=>setDays(d)}>{d} T.</button>)}</div></div>
   {error&&<div className="notice n-liquid panel" role="status">{error}</div>}
   {!res&&busy&&<p className="fine">Auswertung wird berechnet …</p>}
-  {res&&<div className={busy?'analysis-body busy':'analysis-body'} aria-busy={busy}>
+  {res&&<Guard><div className={busy?'analysis-body busy':'analysis-body'} aria-busy={busy}>
    <Quality res={res}/>
    {s?.mean==null?<p className="fine">Für diesen Zeitraum liegen noch keine Glukosewerte in der Datenbank. Die Synchronisierung läuft im Hintergrund; Lücken lassen sich unter Einstellungen › Daten nachholen.</p>:<>
    <div className="kpis">
@@ -39,10 +44,10 @@ export function Analysis({state,load,unit,active=true}:any){
     <Nights res={res}/>
     <Sites res={res} unit={unit}/>
    </div>
-   <Weeks weeks={res.weeks} unit={unit}/>
    </>}
    <ul className="caveats">{res.caveats.map((c:string)=><li key={c}>{c}</li>)}</ul>
-  </div>}
+  </div></Guard>}
+  {loadLong&&<Guard><Longterm load={loadLong} unit={unit} active={opened.current} lastRun={lastRun} source={source}/></Guard>}
  </section>;
 }
 function Quality({res}:any){
@@ -127,12 +132,5 @@ function Nights({res}:any){
   {n.length?<table className="analysis-table"><thead><tr><th>Nacht</th><th>Schlaf</th><th>Dauer</th><th>Im Bereich</th><th>Min.</th><th>Tiefs</th><th title="CGM- und Pumpenalarme in der Nacht">Alarme</th><th title="SpO2 im Schlaf: Mittel / Tiefstwert (Garmin)">SpO2</th></tr></thead>
    <tbody>{n.map((x:any)=><tr key={x.night}><td>{dateKey(x.night)}</td><td>{x.score??'—'}</td><td>{pct(x.hours,1)} h</td><td>{pct(x.tir)} %</td><td>{x.min??'—'}</td><td>{x.hypos}{x.compression?<span className="muted" title="mögliches Kompressionstief erkannt und ausgeklammert"> (K)</span>:''}</td><td>{x.alarms}</td><td>{x.spo2!=null?`${x.spo2}/${x.spo2Low??'—'}`:'—'}</td></tr>)}</tbody></table>
   :<p className="fine">Ohne Schlafdaten zählt die Konsens-Nacht von 0 bis 6 Uhr. Mit Garmin kommen Schlafwert, Phasen und HRV dazu.</p>}
- </article>;
-}
-function Weeks({weeks,unit}:any){
- const w=weeks.filter((x:any)=>x.tir!=null);if(w.length<2)return null;
- return <article className="analysis-card"><div className="card-top"><div><span className="eyebrow">VERLAUF</span><h3>Woche für Woche</h3></div></div>
-  <table className="analysis-table"><thead><tr><th>Ab</th><th>Im Bereich</th><th>Unter 70</th><th>Mittel</th><th>CV</th><th>Tragezeit</th></tr></thead>
-   <tbody>{w.map((x:any)=><tr key={x.from}><td>{date(x.from)}</td><td><span className="tir-meter" style={{['--p' as any]:x.tir/100}}/>{pct(x.tir)} %</td><td>{pct(x.tbr,1)} %</td><td>{format(x.mean,unit)}</td><td>{pct(x.cv)} %</td><td>{Math.round(x.coverage*100)} %</td></tr>)}</tbody></table>
  </article>;
 }

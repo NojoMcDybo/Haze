@@ -128,6 +128,9 @@ Haze legt eine lokale Datenbank `haze.db` im Datenordner an und sammelt dort Glu
   Erfasst werden (1.7): Tageswerte, Schlaf mit Phasen, HRV (auch 5-Minuten-Werte der Nacht), Ruhepuls, Puls, Stress, Body Battery, Schritte, Atmung, SpO2, Trainingsbereitschaft, Trainingsstatus sowie Puls, Tempo, Leistung und Höhe je Training. **GPS-Daten speichert Haze nicht**; sie werden schon vor dem Ablegen der Rohantwort entfernt. Neue Datenarten holt Haze für bereits geladene Tage einzeln nach.
 - **Auswertung** im Dashboard (14/30/90 Tage): Zeit in Bereichen nach internationalem Konsens, zeitgewichtet; Mittelwert, GMI, CV, GRI; Tagesprofil (AGP); Tiefs; Nächte mit Schlafwert; Training; Woche für Woche. Mögliche Kompressionstiefs und Sensor-Aufwärmphasen werden ausgeklammert.
 - **Zusammenhänge** zeigt Haze nur mit ausreichend vielen Tagen, Permutationstest, Bootstrap-Intervall und FDR-Korrektur, immer beschreibend. Haze gibt keine Hinweise zu Insulin, Kohlenhydraten oder Therapie.
+- **Langzeit (1.9)** unter der Auswertung, über bis zu 365 Tage. Haze zeigt dort Wochen und Monate, Vergleiche (letzte 4 Wochen gegen die 4 bzw. 12 davor und den letzten vollen Monat gegen den davor), Trends über Wochen, Wendepunkte mit dem, was sich gleichzeitig verändert hat, und Zusammenhänge zwischen Wochen nach Herausrechnen des Langzeittrends.
+  Ein Unterschied gilt nur als „klar“, wenn er spürbar und statistisch abgesichert ist; „stabil“ und „offen“ werden ebenso ausgewiesen.
+  Vergleiche brauchen je Zeitraum 14 Tage, Trends 8 Wochen, Zusammenhänge 12 Wochen. Plan und Verfahren: `docs/PLAN-LANGZEIT.md`.
 
 ## Lizenz
 

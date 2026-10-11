@@ -92,7 +92,7 @@ async function action(type,p={}){switch(type){
  case 'undock':controller?.detach();break;
  case 'quit':quitting=true;app.quit();break;
  case 'window':{if(!dashboard||dashboard.isDestroyed())return {ok:false};const op=p?.op;if(op==='minimize')dashboard.minimize();else if(op==='maximize'){if(dashboard.isMaximized())dashboard.unmaximize();else dashboard.maximize();}else if(op==='close')dashboard.close();return {ok:true};}
- case 'analysis':if(!data)throw Error(dataError||'Datenbank nicht verfügbar');return await data.analysis({days:Number(p.days)||14});
+ case 'analysis':if(!data)throw Error(dataError||'Datenbank nicht verfügbar');return await data.analysis({days:Number(p.days)||14,kind:p.kind==='longterm'?'longterm':'period'});
  case 'sync-now':if(!data)throw Error(dataError||'Datenbank nicht verfügbar');data.run('manuell');break;
  case 'import-clarity':{if(!data)throw Error(dataError||'Datenbank nicht verfügbar');const r=await dialog.showOpenDialog(dashboard,{title:'Clarity-Export (CSV) importieren',filters:[{name:'Clarity-Export',extensions:['csv']}],properties:['openFile']});if(r.canceled||!r.filePaths[0])return {ok:false};return {ok:true,...await data.importClarity(r.filePaths[0])};}
  case 'garmin-login':if(!data)throw Error(dataError||'Datenbank nicht verfügbar');config.garminConnect=true;persist();data.garmin.openLogin();break;
