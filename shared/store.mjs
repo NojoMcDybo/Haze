@@ -77,7 +77,7 @@ export function openStore(file){
    return {
     glucose:all('select time,value,source,trend from glucose where time>=? and time<? order by time',from-pad,to+pad),
     treatments:all('select time,type,insulin,carbs,rate,duration,event,source from treatment where time>=? and time<? order by time',from-pad,to+pad),
-    deviceEvents:all('select time,type,detail from device_event where time>=? and time<? order by time',from-pad,to+pad),
+    deviceEvents:all('select time,type,detail from device_event where time>=? and time<? order by time',from-11*pad,to+pad),// 11 Tage zurück: Katheter-Alter am Periodenanfang
     activities:all('select id,start,end,type,avg_hr as avgHr,max_hr as maxHr,kcal,load,training_effect as trainingEffect from activity where start>=? and start<? order by start',from,to),
     sleeps:all('select night,start,end,score,deep,light,rem,awake,hrv,rhr,spo2,spo2_low as spo2Low,respiration,stress,restless,bb_change as bbChange,awake_count as awakeCount from sleep where end>? and start<? order by start',from,to),
     daily:all('select date,steps,intensity_minutes as intensityMinutes,rhr,stress_avg as stressAvg,bb_min as bbMin,bb_max as bbMax,readiness,readiness_level as readinessLevel,acute_load as acuteLoad,acwr,training_status as trainingStatus,respiration,spo2,hrv_weekly as hrvWeekly,recovery_time as recoveryTime from daily order by date'),

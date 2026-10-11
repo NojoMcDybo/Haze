@@ -6,7 +6,7 @@
 import {DAY,MIN,defaultZone,dayKey,dayStart,addDays,days as dayRange,minuteOfDay} from './time.mjs';
 import {merge,summary,agp,hypos,hypers,gaps,inRange,TARGETS} from './glucose.mjs';
 import {compressionLows,sensorWindows,exclude} from './artifacts.mjs';
-import {activityContext,activityTypes,nightWindows,nightContext,dayContext,hourlyProfile} from './context.mjs';
+import {activityContext,activityTypes,activityModes,nightWindows,nightContext,dayContext,hourlyProfile,siteAges} from './context.mjs';
 import {insights} from './insights.mjs';
 export {TARGETS};
 /** @param {any} data @param {{from?:number,to?:number,tz?:string,seed?:number,permutations?:number}} [options] */
@@ -27,7 +27,8 @@ export function analyze(data,{from,to,tz=defaultZone(),seed=7,permutations=999}=
  const lows=hypos(period),highs=hypers(period),nocturnal=e=>minuteOfDay(e.start,tz)<360;
  const nights=nightContext(clean,nightWindows(sleeps,keys,tz).filter(n=>n.end>from&&n.start<to),{treatments,alarms:deviceEvents.filter(d=>d.type==='alarm'),compression});
  const acts=activityContext(clean,activities,{treatments,hypoEpisodes:hypos(clean).level1});
- const dayTable=dayContext(clean,keys,tz,{daily:data.daily||[],nights,activities,treatments});
+ const siteChanges=deviceEvents.filter(d=>d.type==='site').map(d=>d.time).concat((data.deviceEvents||[]).filter(d=>d.type==='site'&&d.time<from-DAY&&d.time>=from-11*DAY).map(d=>d.time));
+ const dayTable=dayContext(clean,keys,tz,{daily:data.daily||[],nights,activities,treatments,siteChanges});
  const weeks=[];for(let k=firstDay;k<=lastDay;k=addDays(k,7)){const s=dayStart(k,tz),e=Math.min(to,dayStart(addDays(k,7),tz));const m=summary(clean,s,e);weeks.push({from:s,to:e,mean:m.mean,tir:m.tir,tbr:m.tbr,cv:m.cv,coverage:m.coverage});}
  const hasTreatments=treatments.some(t=>t.insulin>0||t.carbs>0),hasPump=treatments.some(t=>t.type==='basal'||t.type==='sleep_mode'||t.type==='exercise_mode');
  const caveats=['Beobachtungen in deinen eigenen Daten, kein Nachweis von Ursachen und keine Therapieempfehlung.'];
@@ -40,7 +41,7 @@ export function analyze(data,{from,to,tz=defaultZone(),seed=7,permutations=999}=
   summary:summaryAll,targets:TARGETS,
   agp:agp(period,tz),hourly:hourlyProfile(period,tz),
   episodes:{hypo:lows.level1.map(e=>({...e,night:nocturnal(e)})),hypo54:lows.level2.map(e=>({...e,night:nocturnal(e)})),hyper:highs.level1.length,hyper250:highs.level2.length},
-  nights,activities:acts,activityTypes:activityTypes(acts),days:dayTable,weeks,
+  nights,activities:acts,activityTypes:activityTypes(acts),activityModes:activityModes(acts),siteAges:siteAges(dayTable),days:dayTable,weeks,
   insights:insights({days:dayTable,nights:nights.filter(n=>n.source==='garmin'),activities:acts},{seed,permutations,bootstrap:permutations}),
   quality:{readings:period.length,raw:inRange(raw,from,to).length,compression:compression.filter(c=>c.nadirTime>=from&&c.nadirTime<to),warmups:warmups.length,
    gaps:gaps(inRange(all,from,to),from,to).filter(g=>g.minutes>=60),sources:countSources(inRange(all,from,to)),

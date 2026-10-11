@@ -3,7 +3,7 @@ import {MIN,HOUR,DAY,dayKey,dayStart,minuteOfDay,addDays,days} from '../shared/a
 import {quantile,ranks,spearman,spearmanTest,fdr,medianDifference,rng} from '../shared/analysis/stats.mjs';
 import {merge,weights,summary,episodes,agp,gaps} from '../shared/analysis/glucose.mjs';
 import {compressionLows,exclude} from '../shared/analysis/artifacts.mjs';
-import {activityContext,nightWindows,nightContext,dayContext} from '../shared/analysis/context.mjs';
+import {activityContext,activityModes,nightWindows,nightContext,dayContext,siteAges} from '../shared/analysis/context.mjs';
 import {insights,HYPOTHESES,VARIABLES} from '../shared/analysis/insights.mjs';
 import {analyze} from '../shared/analysis/index.mjs';
 import {synthetic} from '../shared/analysis/synthetic.mjs';
@@ -88,4 +88,23 @@ test('Gesamtanalyse: Lücken, Artefakte, Hinweise zur Belastbarkeit, determinist
  assert.equal(a.days.length,30);assert.ok(a.nights.every(n=>n.source==='garmin'));
  assert.ok(a.caveats.some(c=>/Control-IQ/.test(c)));assert.ok(a.caveats[0].includes('keine Therapieempfehlung'));
  const empty=analyze({glucose:[]},{from:T0,to:T0+DAY,tz});assert.equal(empty.summary.mean,null);assert.equal(empty.insights.found.length,0);
+});
+test('Pumpe und Garmin im Kontext: Katheter-Alter, Sportmodus, Alarme, Schlafwerte',()=>{
+ const end=T0+90*DAY,a=analyze(synthetic({days:90,end}),{from:end-90*DAY,to:end,tz,permutations:499});
+ const ids=a.insights.found.map(f=>f.id);
+ assert.ok(ids.includes('nights:cv:restless:0'),ids.join());assert.ok(ids.includes('days:siteAge:mean:0'),ids.join());
+ assert.ok(a.activityModes.with.n>5&&a.activityModes.without.n>5);assert.ok(a.activityModes.with.drop<a.activityModes.without.drop,'Sportmodus: kleinerer Abfall');
+ assert.deepEqual(a.siteAges.slice(0,3).map(g=>g.n>0),[true,true,true]);assert.ok(a.siteAges[2].mean>a.siteAges[0].mean);
+ assert.ok(a.nights.some(n=>n.alarms>0));assert.ok(a.nights.every(n=>n.sleepMode===true));assert.ok(a.nights.every(n=>Number.isFinite(n.spo2)&&Number.isFinite(n.restless)));
+ assert.ok(a.days.filter(d=>d.readiness!=null).length>=a.days.length-1,'Randtag des Zeitraums ohne Garmin-Tag erlaubt');
+ // Katheter-Alter: Wechsel am 2.6. 10 Uhr → 2.6. Tag 0, 4.6. Tag 2; älter als 10 Tage zählt nicht
+ const d=dayContext([],['2026-06-02','2026-06-04','2026-06-20'],tz,{siteChanges:[T0+10*HOUR]});
+ assert.deepEqual(d.map(x=>x.siteAge),[0,2,null]);
+ assert.deepEqual(siteAges([{siteAge:0,mean:100,tir:90,tar:5},{siteAge:5,mean:130,tir:80,tar:15}]).map(g=>g.n),[1,0,0,1]);
+ assert.deepEqual(activityModes([]).with.n,0);
+});
+test('Hinweise ohne Trennung der Drittel werden unterdrückt',()=>{
+ const rows=Array.from({length:40},(_,i)=>({steps:i<30?10000:5000+i*10,tir:i<30?100-(i%3):80+i%5,mean:120,tbr:0,stressAvg:30,cv:20}));
+ const res=insights({days:rows,nights:[],activities:[]},{permutations:199});
+ assert.ok(res.found.every(f=>f.groups.high.min>f.groups.low.max));
 });
