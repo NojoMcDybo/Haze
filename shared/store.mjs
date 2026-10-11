@@ -22,16 +22,21 @@ create table meta(key text primary key,value text);
 `,`
 create table ns_doc(collection text not null,id text not null,time integer not null,event text,json text not null,primary key(collection,id)) without rowid;
 create index ns_doc_query on ns_doc(collection,event,time);
+`,`
+alter table sleep add column spo2 real;alter table sleep add column spo2_low real;alter table sleep add column respiration real;
+alter table sleep add column stress real;alter table sleep add column restless real;alter table sleep add column bb_change real;alter table sleep add column awake_count real;
+alter table daily add column readiness real;alter table daily add column readiness_level text;alter table daily add column acute_load real;alter table daily add column acwr real;
+alter table daily add column training_status text;alter table daily add column respiration real;alter table daily add column spo2 real;alter table daily add column hrv_weekly real;alter table daily add column recovery_time real;
 `];
 const cols={
  glucose:['time','source','value','trend','device'],
  treatment:['id','time','type','insulin','carbs','rate','duration','event','notes','source'],
  device_event:['id','time','type','detail','source'],
  hr:['time','source','bpm'],series:['kind','time','source','value'],
- sleep:['night','start','end','score','deep','light','rem','awake','hrv','rhr','source','updated'],
+ sleep:['night','start','end','score','deep','light','rem','awake','hrv','rhr','source','updated','spo2','spo2_low','respiration','stress','restless','bb_change','awake_count'],
  sleep_stage:['night','start','end','stage'],
  activity:['id','start','end','type','avg_hr','max_hr','kcal','load','training_effect','source','updated'],
- daily:['date','steps','intensity_minutes','rhr','stress_avg','bb_min','bb_max','source','updated'],
+ daily:['date','steps','intensity_minutes','rhr','stress_avg','bb_min','bb_max','source','updated','readiness','readiness_level','acute_load','acwr','training_status','respiration','spo2','hrv_weekly','recovery_time'],
 };
 const camel=k=>k.replace(/_(\w)/g,(_,c)=>c.toUpperCase());
 const val=v=>v===undefined||(typeof v==='number'&&!Number.isFinite(v))?null:v;
@@ -54,6 +59,8 @@ export function openStore(file){
   getRaw(source,kind,key){const r=get('select json,fetched from raw where source=? and kind=? and key=?',source,kind,key);return r?{json:JSON.parse(r.json),fetched:r.fetched}:null;},
   rawKeys(source,kind){return all('select key,fetched from raw where source=? and kind=? order by key',source,kind);},
   state,
+  meta(key){return get('select value from meta where key=?',key)?.value??null;},
+  setMeta(key,value){prep('insert or replace into meta values(?,?)').run(key,String(value));},
   setState(source,patch){const s={...state(source),...patch};prep('insert or replace into sync_state values(?,?,?,?,?)').run(source,val(s.cursor),val(s.last_ok),val(s.last_error),s.detail==null?null:typeof s.detail==='string'?s.detail:JSON.stringify(s.detail));},
   // Nightscout-Dokumente, wie tconnectsync sie an den Haze-Empfänger schickt (für „letzter Upload“-Abfragen).
   putDoc(collection,id,time,event,doc){prep('insert or replace into ns_doc values(?,?,?,?,?)').run(collection,id,time,event??null,JSON.stringify(doc));},
@@ -72,8 +79,8 @@ export function openStore(file){
     treatments:all('select time,type,insulin,carbs,rate,duration,event,source from treatment where time>=? and time<? order by time',from-pad,to+pad),
     deviceEvents:all('select time,type,detail from device_event where time>=? and time<? order by time',from-pad,to+pad),
     activities:all('select id,start,end,type,avg_hr as avgHr,max_hr as maxHr,kcal,load,training_effect as trainingEffect from activity where start>=? and start<? order by start',from,to),
-    sleeps:all('select night,start,end,score,deep,light,rem,awake,hrv,rhr from sleep where end>? and start<? order by start',from,to),
-    daily:all('select date,steps,intensity_minutes as intensityMinutes,rhr,stress_avg as stressAvg,bb_min as bbMin,bb_max as bbMax from daily order by date'),
+    sleeps:all('select night,start,end,score,deep,light,rem,awake,hrv,rhr,spo2,spo2_low as spo2Low,respiration,stress,restless,bb_change as bbChange,awake_count as awakeCount from sleep where end>? and start<? order by start',from,to),
+    daily:all('select date,steps,intensity_minutes as intensityMinutes,rhr,stress_avg as stressAvg,bb_min as bbMin,bb_max as bbMax,readiness,readiness_level as readinessLevel,acute_load as acuteLoad,acwr,training_status as trainingStatus,respiration,spo2,hrv_weekly as hrvWeekly,recovery_time as recoveryTime from daily order by date'),
    };
   },
   stats(){

@@ -65,13 +65,17 @@ module.exports=class GarminConnect{
  async sync({store,gc,today,addDays,dayStart,tz,backfillDays=180,budget=30,spacing=1000,onProgress=()=>{}}){
   if(!await this.ready())throw Object.assign(Error('Nicht bei Garmin angemeldet.'),{kind:'auth'});
   if(!this.state.displayName)throw Error('Garmin-Profil nicht lesbar.');
-  const dn=this.state.displayName,overlap=3;
-  // Fertig = Tagesdaten wurden nach Ablauf der Überlappung abgerufen (Garmin rechnet Schlaf/Body Battery nach).
-  const done=new Set(store.rawKeys('garmin','daily').filter(r=>r.fetched>=dayStart(addDays(r.key,overlap+1),tz)).map(r=>r.key));
-  const days=gc.planDays({today,done,backfillDays,overlap,budget,addDays});let n=0;
-  for(const d of days){
+  const dn=this.state.displayName,overlap=3,kinds=Object.keys(gc.ENDPOINTS);
+  // Abgerufen werden nur fehlende oder noch nicht endgültige Datenarten (Garmin rechnet Schlaf/Body Battery nach).
+  const fetched=new Map(kinds.map(k=>[k,new Map(store.rawKeys('garmin',k).map(r=>[r.key,r.fetched]))]));
+  const days=gc.planFetch({today,backfillDays,overlap,budget,addDays,kinds,fetched:(k,d)=>fetched.get(k).get(d)??null,settledAt:d=>dayStart(addDays(d,overlap+1),tz)});let n=0;
+  for(const {date:d,kinds:need} of days){
    const raw={};
-   for(const [kind,path] of Object.entries(gc.ENDPOINTS)){try{raw[kind]=await this.fetchJson(path(dn,d));if(raw[kind]!=null)store.putRaw('garmin',kind,d,raw[kind]);}catch(e){if(e.kind==='auth'||e.kind==='rate')throw e;}await wait(spacing);}
+   for(const kind of kinds){
+    if(!need.includes(kind)){raw[kind]=store.getRaw('garmin',kind,d)?.json??null;continue;}
+    try{raw[kind]=await this.fetchJson(gc.ENDPOINTS[kind](dn,d));store.putRaw('garmin',kind,d,raw[kind]);}catch(e){if(e.kind==='auth'||e.kind==='rate')throw e;}
+    await wait(spacing);
+   }
    const rows=gc.normalizeDay(d,raw);
    store.upsert('daily',rows.daily);store.upsert('sleep',rows.sleep);store.upsert('sleep_stage',rows.stages);store.upsert('series',rows.series);store.upsert('hr',rows.hr);
    onProgress({day:d,done:++n,total:days.length});
@@ -80,7 +84,14 @@ module.exports=class GarminConnect{
   const first=!store.state('garmin-activities').last_ok,from=addDays(today,first?-backfillDays:-14);
   for(let start=0;start<2000;start+=100){const list=await this.fetchJson(gc.activitiesPath(from,today,start));const rows=gc.activities(list);store.upsert('activity',rows);if(!Array.isArray(list)||list.length<100)break;await wait(spacing);}
   store.setState('garmin-activities',{last_ok:Date.now(),last_error:null});
-  return {days:n};
+  // Messreihen je Training (Puls, Tempo, Leistung, Höhe), Neueste zuerst, höchstens 10 pro Lauf; GPS wird vorher entfernt.
+  const have=new Set(store.rawKeys('garmin','activityDetails').map(r=>r.key));let details=0;
+  for(const a of store.all("select id from activity where source='garmin' order by start desc limit 400")){
+   if(details>=10)break;const id=a.id.replace(/^garmin:/,'');if(have.has(id))continue;
+   const json=gc.stripLocation(await this.fetchJson(gc.activityDetailsPath(id)));store.putRaw('garmin','activityDetails',id,json);store.upsert('series',gc.activityDetails(json));details++;
+   await wait(spacing);
+  }
+  return {days:n,details};
  }
  async logout(){this.state={loggedIn:false,checking:false,error:null,displayName:null};this.headers=null;this.prefix=null;this.arrived=0;this.seen.clear();if(this.win&&!this.win.isDestroyed()){this.quitting=true;this.win.destroy();this.quitting=false;}this.win=null;await session.fromPartition(PART).clearStorageData();this.changed();}
  dispose(){this.quitting=true;if(this.win&&!this.win.isDestroyed())this.win.destroy();}

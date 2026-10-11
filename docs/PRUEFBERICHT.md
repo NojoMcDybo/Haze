@@ -167,3 +167,13 @@ Plan: `docs/PLAN-TANDEM-SICHER.md`.
 ### Offen (braucht Nojos Tandem-Zugang)
 - Anmeldung und erster Abgleich mit echtem Konto; Prüfung der übernommenen Bolus-, Modus- und CGM-Daten.
 - Einstellungen › Daten › Tandem in der installierten App (Eingabe, Einrichten, Prüfen, Einschalten).
+
+## Branch claude/garmin-mehr – 11. Oktober 2026: Mehr Garmin-Daten (PR B)
+
+### Bestanden
+- `npm test`: 82 grün. Neu bzw. ersetzt in `tests/data.test.mjs`: Abrufplan je Datenart (Überlappung komplett, fertige Tage übersprungen, nur fehlende/vorläufige Arten), zusätzliche Tages- und Nachtwerte, Epochen, unsichere SpO2-Werte verworfen, Tageszeile auch ohne Zusammenfassung, Trainingsreihen ohne GPS (keine Koordinate mehr im JSON), Neuauswertung aus Rohdaten, `meta`.
+- Aufbereitung gegen echte Antworten: Tag 6. Oktober mit Atmung 13, SpO2 96, Bereitschaft 90 (HIGH), Status DETRAINING; Nacht mit SpO2 96/78, Atmung 12, Schlafstress 20, 50 unruhige Momente; 1.500 Epochen; echtes Training: 842 Pulswerte, 841 Tempo-, 835 Leistungs-, 842 Höhenwerte; nach `stripLocation` keine Koordinate in den Rohdaten.
+- `npx tsc --noEmit`, Build.
+
+### Offen
+- Ende-zu-Ende-Abruf mit echtem Konto in Haze (Testsitzung abgelaufen).
