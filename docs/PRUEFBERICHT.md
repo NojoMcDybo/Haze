@@ -123,3 +123,33 @@ Offen (nur auf dem echten Desktop prüfbar): Puls einer echten Garmin erscheint 
 - Offen: echter Vergleich Forerunner-Anzeige vs. Haze vs. Notch; physisches Wiederverbinden und Verfügbarkeit des Akkudienstes. Ein Softwaretest ersetzt diesen Gerätevergleich nicht.
 
 Weitere Garmin-Statistiken: Der Herzfrequenzdienst enthält keine Schritte, Body Battery, Stress- oder Schlafdaten. Garmin Health API bietet synchronisierte Daten nach Freigabe (https://developer.garmin.com/gc-developer-program/health-api/). Connect IQ SensorHistory erlaubt geräteabhängige Verlaufsdaten auf der Uhr (https://developer.garmin.com/connect-iq/api-docs/Toybox/SensorHistory.html); dafür wäre eine eigene Uhren-App mit separatem Transport nötig. Es wurde keine ungeprüfte Cloud-Anmeldung oder zweite konkurrierende BLE-Verbindung ergänzt.
+
+## Branch claude/plan-datenanalyse – 7. Oktober 2026: Datenbank, Nachholen, Analyse-Engine
+
+Plan und Entscheidungen: `docs/PLAN-DATENANALYSE.md`.
+
+### Bestanden
+
+- `npm test`: 75 Tests grün, davon neu `tests/analysis.test.mjs` (12) und `tests/data.test.mjs` (8). Abgedeckt: Ortszeit über beide Zeitumstellungen; Quantile, Ränge mit Bindungen, Spearman, FDR, reproduzierbarer Zufall; Quellenpriorität (Share vor Clarity vor Pumpe); zeitgewichtete Konsens-Kennzahlen (TIR/TBR/TAR, GMI, CV, GRI, 14 Tage/70 %); Episoden mit 15-min-Beginn/-Erholung und Lückenabbruch; AGP; Kompressionstief erkannt, langsames Tief / Tief mit KH / Tagestief nicht; Aktivitätskontext; Nächte ohne Garmin (0–6 Uhr); Basal aus Raten; eingebaute Zusammenhänge in 90 Tagen künstlicher Daten gefunden, reines Rauschen ergibt keinen Hinweis; keine Hinweistexte zu Insulin/KH; Datenbank-Schema, Upsert, Laden, Sicherung, Aufbewahrung; Nightscout-Sync mit Cursor und nur GET; tconnectsync-Formate (aus dessen Quellcode `parser/nightscout.py`); Clarity-CSV englisch/deutsch inkl. mmol/L und Low/High; Garmin-Normalisierung (angenommene Formate); Tagesplan Garmin; Lücken pro Tag mit Aufgeben nach zwei Versuchen.
+- `npx tsc --noEmit` und `npm run build` ohne Fehler.
+- Electron-Laufzeit (`ELECTRON_RUN_AS_NODE`): `node:sqlite` (SQLite 3.53) ohne Flag, Clarity-Import von 5760 Werten, Analyse im Worker-Thread (90 Tage ≈ 0,25 s), Lückenerkennung, tägliche Sicherung.
+- Echte App mit `--smoke` und isoliertem `NEBEL_DATA_DIR`: Hauptprozess startet mit Datenservice; über die lokale Webansicht `analysis` (30 Tage, Demo) und `sync-now` erfolgreich; Sicherung angelegt.
+- Browser-Vorschau (`?preview=1`): Auswertung dunkel/hell, 14/90 Tage, schmale Ansicht 375 px ohne horizontales Überlaufen; Einstellungen › Daten rendert. Bereichsfarben mit dem dataviz-Validator geprüft (hell und dunkel bestanden; Kontrastwarnung ausgeglichen durch immer sichtbare Prozentwerte).
+
+### Offen (braucht Zugangsdaten oder echten Desktop)
+
+- Nightscout-Sync gegen die echte lokale Instanz (lief bei der Prüfung nicht).
+- Clarity-Export mit echter Datei (deutsche Spaltennamen sind aus Erfahrungswerten abgeleitet).
+- Dateidialoge (Clarity-Import, Pfadwahl) und Garmin-Fenster nur auf dem echten Desktop prüfbar.
+
+### Garmin Connect mit echtem Konto (7. Oktober 2026, abends)
+
+- Anmeldung im Testfenster (Garmin-Seite, Nojo selbst). Die Web-App liegt inzwischen unter `/app/`; die Daten-API unter `https://connect.garmin.com/gc-api/` antwortet nur mit den Headern der Web-App (u. a. `Connect-Csrf-Token`), ohne sie 403. `/modern/` liefert nur HTML. Abruf aus dem Electron-Hauptprozess (`session.fetch`) wird mit 403 abgelehnt, im Seitenkontext klappt er.
+- Alle 15 Probe-Endpunkte HTTP 200 (Tageswerte, Schlaf, Stress, Body Battery, Puls, Schritte, Intensitätsminuten, Atmung, SpO2, HRV, Trainingsbereitschaft, Trainingsstatus, Aktivitäten, Schlaf und Tageswerte vor 180 Tagen). Sieben Nächte hintereinander in 12 s ohne Drosselung.
+- `shared/sync/garmin-connect.mjs` gegen die echten Antworten: keine fehlenden Felder; Schlafphasen-Kodierung (0 tief, 1 leicht, 2 REM, 3 wach) minutengenau gleich den Garmin-Summen; Body-Battery- und Stressspalten jetzt über die Deskriptor-Listen der Antwort.
+- `desktop/garmin-connect.cjs` Ende-zu-Ende in Electron mit der gespeicherten Sitzung: 5 Tage in 36 s nach `haze.db` (5 Tage, 5 Nächte, 109 Schlafphasen, 3276 Pulswerte, 4451 Stress/Body-Battery/Schritt-Werte). Aktivitätenliste über ein Jahr: 21 Läufe, Format passt.
+- Rohantworten und Testsitzung liegen außerhalb des Repos unter `D:\Dev\_spike-data\garmin`.
+
+### Tandem entfernt (8. Oktober 2026)
+
+Auf Nojos Wunsch aus Sicherheitsgründen: kein tconnectsync-Start, keine Tandem-Einstellungen, keine Tandem-Lückenplanung (`desktop/tandem.cjs`, `shared/sync/tandem.mjs` gelöscht). Lücken werden erkannt und per Clarity-Import gefüllt. `npm test` danach 74 grün, `npx tsc --noEmit` und Build fehlerfrei.
