@@ -11,7 +11,7 @@ const tmp=()=>path.join(fs.mkdtempSync(path.join(os.tmpdir(),'haze-')),'haze.db'
 
 test('Datenbank: Schema, Upsert ohne Duplikate, Laden für die Analyse, Sicherung',()=>{
  const file=tmp(),s=openStore(file);
- assert.equal(s.get('pragma user_version').user_version,1);
+ assert.equal(s.get('pragma user_version').user_version,2);
  s.upsert('glucose',[{time:T0,value:100,source:'share'},{time:T0,value:101,source:'share'},{time:T0+60000,value:99,source:'pump'}]);
  s.upsert('activity',[{id:'a',start:T0,end:T0+HOUR,type:'running',avgHr:140}]);
  s.upsert('daily',[{date:'2026-06-02',steps:1000,intensityMinutes:30}]);

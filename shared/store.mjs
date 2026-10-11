@@ -19,6 +19,9 @@ create table raw(source text not null,kind text not null,key text not null,fetch
 create table sync_state(source text primary key,cursor integer,last_ok integer,last_error text,detail text);
 create table gap(start integer not null,end integer not null,status text not null,tries integer not null default 0,updated integer,primary key(start));
 create table meta(key text primary key,value text);
+`,`
+create table ns_doc(collection text not null,id text not null,time integer not null,event text,json text not null,primary key(collection,id)) without rowid;
+create index ns_doc_query on ns_doc(collection,event,time);
 `];
 const cols={
  glucose:['time','source','value','trend','device'],
@@ -52,6 +55,12 @@ export function openStore(file){
   rawKeys(source,kind){return all('select key,fetched from raw where source=? and kind=? order by key',source,kind);},
   state,
   setState(source,patch){const s={...state(source),...patch};prep('insert or replace into sync_state values(?,?,?,?,?)').run(source,val(s.cursor),val(s.last_ok),val(s.last_error),s.detail==null?null:typeof s.detail==='string'?s.detail:JSON.stringify(s.detail));},
+  // Nightscout-Dokumente, wie tconnectsync sie an den Haze-Empfänger schickt (für „letzter Upload“-Abfragen).
+  putDoc(collection,id,time,event,doc){prep('insert or replace into ns_doc values(?,?,?,?,?)').run(collection,id,time,event??null,JSON.stringify(doc));},
+  latestDoc(collection,{event,from,to}={}){
+   const w=['collection=?'],a=[collection];if(event!=null){w.push('event=?');a.push(event);}if(from!=null){w.push('time>=?');a.push(from);}if(to!=null){w.push('time<=?');a.push(to);}
+   const r=get(`select json from ns_doc where ${w.join(' and ')} order by time desc limit 1`,...a);return r?JSON.parse(r.json):null;},
+  deleteDoc(collection,id){return prep('delete from ns_doc where collection=? and id=?').run(collection,id).changes;},
   glucoseTimes(from,to){return all('select time from glucose where time>=? and time<? order by time',from,to).map(r=>r.time);},
   gaps(){return all('select * from gap order by start');},
   saveGaps(list){tx(()=>{prep('delete from gap').run();const s=prep('insert into gap values(?,?,?,?,?)');for(const g of list)s.run(g.start,g.end,g.status,g.tries||0,g.updated||Date.now());});},

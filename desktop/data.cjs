@@ -1,11 +1,14 @@
-// Datenhaltung und Hintergrund-Synchronisierung: haze.db, Nightscout-Historie, Lücken (Nachholen per Clarity-Import), Garmin, Sicherung.
+// Datenhaltung und Hintergrund-Synchronisierung: haze.db, Nightscout-Historie, Tandem (tconnectsync → Haze-Empfänger),
+// Lücken (Pumpen-CGM und Clarity-Import), Garmin, Sicherung.
 // Läuft beim Start (verzögert), stündlich und nach Standby. Fehler einer Quelle stoppen die anderen nicht.
 const fs=require('fs'),path=require('path');
 const {Worker}=require('worker_threads');
 const GarminConnect=require('./garmin-connect.cjs');
+const Tandem=require('./tandem.cjs');
 const DAY=86400000,HOUR=3600000;
 module.exports=class DataService{
- constructor({dir,config,token,changed}){this.dir=dir;this.file=path.join(dir,'haze.db');this.config=config;this.token=token;this.changed=changed;
+ // tandemAuth: liefert {email,password} entschlüsselt aus settings.json (DPAPI) oder null; nur im Speicher verwendet.
+ constructor({dir,config,token,tandemAuth=()=>null,changed}){this.dir=dir;this.file=path.join(dir,'haze.db');this.config=config;this.token=token;this.tandemAuth=tandemAuth;this.changed=changed;this.tandem=new Tandem(dir);
   this.status={running:false,phase:null,progress:null,lastRun:null,errors:{},results:{},gaps:[],stats:null,lastBackup:null};
   this.garmin=new GarminConnect(()=>changed());this.cache=new Map();}
  async init(){
@@ -14,7 +17,8 @@ module.exports=class DataService{
  }
  tz(){return this.time.defaultZone();}
  refreshStats(){try{this.status.stats=this.db.stats();this.status.gaps=this.db.gaps().slice(-20).reverse();}catch{}}
- publicStatus(){const c=this.config();return {...this.status,garmin:{...this.garmin.state,enabled:!!c.garminConnect}};}
+ publicStatus(){const c=this.config(),i=this.tandem.info();return {...this.status,garmin:{...this.garmin.state,enabled:!!c.garminConnect},
+  tandem:{enabled:!!c.tandem?.enabled,installed:this.tandem.installed(),version:i?.version??null,python:i?.python??null,busy:this.tandem.busy,cursor:this.db?.state('tandem-sync').detail??null}};}
  // Fortschritt höchstens zweimal pro Sekunde melden (jede Meldung erreicht Dashboard, Webansicht und Notch).
  set(patch){Object.assign(this.status,patch);const now=Date.now();if(now-(this.emitted||0)>=500){this.emitted=now;this.changed();}else if(!this.pending)this.pending=setTimeout(()=>{this.pending=null;this.emitted=Date.now();this.changed();},500);}
  start(){this.boot=setTimeout(()=>this.run('start'),15000);this.timer=setInterval(()=>this.run('stündlich'),HOUR);}
@@ -24,11 +28,27 @@ module.exports=class DataService{
   const now=Date.now(),backfillDays=c.backfillDays||180,from=now-backfillDays*DAY;
   try{
    if(c.source==='nightscout'&&c.url)await this.step('nightscout',()=>this.ns.syncNightscout({url:c.url,token:this.token(),store:this.db,now,backfillDays,onProgress:p=>this.set({progress:p})}));
+   if(c.tandem?.enabled&&this.tandem.installed())await this.step('tandem',()=>this.syncPump(backfillDays));
    await this.step('lücken',async()=>this.detectGaps(from,now));
    if(c.garminConnect)await this.step('garmin',()=>this.garmin.sync({store:this.db,gc:this.gc,today:this.time.dayKey(now,this.tz()),addDays:this.time.addDays,dayStart:this.time.dayStart,tz:this.tz(),backfillDays,onProgress:p=>this.set({progress:p})}));
    await this.step('sicherung',()=>this.backup());
   }finally{this.cache.clear();this.refreshStats();this.set({running:false,phase:null,progress:null,lastRun:Date.now()});}
  }
+ // Pumpendaten: tconnectsync für die Tage seit dem letzten Erfolg (beim ersten Mal ab Rückblick), 3 × 7 Tage pro Lauf.
+ async syncPump(backfillDays){
+  const credentials=this.tandemAuth();if(!credentials)throw Error('Kein Tandem-Zugang gespeichert.');
+  const tz=this.tz(),today=this.time.dayKey(Date.now(),tz),st=this.db.state('tandem-sync');
+  const runs=await this.tandem.planRuns({cursor:st.detail||null,today,backfillDays,addDays:this.time.addDays});const stored={};
+  for(const r of runs){
+   this.set({progress:{kind:'tandem',...r}});
+   const res=await this.tandem.sync(r,{credentials,store:this.db});
+   for(const [k,v] of Object.entries(res.stats.stored))stored[k]=(stored[k]||0)+v;
+   this.db.setState('tandem-sync',{detail:r.end,last_ok:Date.now(),last_error:null});
+  }
+  return {runs:runs.length,until:runs.at(-1)?.end??st.detail,stored};
+ }
+ async checkTandem(){const credentials=this.tandemAuth();if(!credentials)throw Error('Kein Tandem-Zugang gespeichert.');return this.tandem.checkLogin({credentials,store:this.db});}
+ async installTandem(){this.set({phase:'tconnectsync einrichten'});try{return await this.tandem.install(m=>this.set({progress:{kind:'install',message:m}}));}finally{this.set({phase:this.status.running?this.status.phase:null,progress:null});}}
  detectGaps(from,to){
   const list=this.gaps.detectGaps(this.db.glucoseTimes(from,to),{from,to,now:Date.now()});
   this.db.saveGaps(list);return {open:list.length};

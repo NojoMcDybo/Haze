@@ -58,3 +58,6 @@
 .data-panel details summary{cursor:pointer}
 @media(max-width:900px){.kpis{grid-template-columns:repeat(3,1fr)}.analysis-grid{grid-template-columns:1fr}}
 @media(max-width:560px){.kpis{grid-template-columns:repeat(2,1fr)}.kpi strong{font-size:22px}.analysis-card{padding:18px 14px 10px}.analysis-table{font-size:11px}}
+.tandem-form{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;align-items:end}.tandem-form .field{margin:12px 0}.tandem-form .button{grid-column:1/-1}
+.garmin-steps .compact-button{margin-left:8px;vertical-align:middle}
+@media(max-width:560px){.tandem-form{grid-template-columns:1fr}}
