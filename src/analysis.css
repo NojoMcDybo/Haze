@@ -71,3 +71,23 @@
 .page-tabs button{padding:7px 13px;font-size:11px}
 @media(prefers-reduced-motion:reduce){.pager{transition:none}}
 @media(max-width:700px){.toolbar-actions{flex-wrap:wrap;justify-content:flex-end;row-gap:10px}.page-tabs{order:9;flex-basis:100%;justify-content:center}.page-tabs button{flex:1;padding:7px 9px;font-size:11px}}
+/* Langzeit: Wochenverlauf, Vergleiche, Wendepunkte, Monate */
+.longterm{margin-top:22px;display:flex;flex-direction:column;gap:14px}
+.segmented.small{padding:3px}.segmented.small button{padding:6px 10px;font-size:10.5px}
+.lt-line{fill:none;stroke:var(--band-target);stroke-width:1.6;stroke-linejoin:round;opacity:.8}
+.lt-point{fill:var(--band-target)}
+.lt-trend{stroke:var(--text);stroke-width:1.5;stroke-dasharray:6 4;opacity:.75}
+.lt-ref{stroke:var(--muted);stroke-width:1;stroke-dasharray:2 4;opacity:.6}
+.lt-change{stroke:var(--high);stroke-width:1.2;stroke-dasharray:3 3}
+.agp text.lt-change-label{fill:var(--high);font-size:10px}
+.lt-ci{font-size:10px;white-space:nowrap}
+.lt-status{display:inline-block;font-size:10.5px;padding:2px 8px;border-radius:9px;background:var(--pill);color:var(--muted);white-space:nowrap}
+.lt-status.toward{color:var(--text);box-shadow:inset 0 0 0 1px var(--band-target)}
+.lt-status.away{color:var(--low);box-shadow:inset 0 0 0 1px var(--low)}
+.lt-status.höher,.lt-status.niedriger{color:var(--text)}
+.lt-status.offen{font-style:italic}
+.table-scroll{overflow-x:auto;margin:0 -2px}
+.table-scroll .analysis-table{min-width:560px}
+.table-scroll .lt-compare{min-width:470px}
+@media(max-width:700px){.longterm .card-top{flex-wrap:wrap;gap:10px}.lt-ci{display:block}}
+.analysis-grid>*{min-width:0;overflow-x:auto}

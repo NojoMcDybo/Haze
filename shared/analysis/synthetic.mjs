@@ -4,11 +4,14 @@
 // Pumpe (eigener Zufallsstrom, damit die übrigen Daten gleich bleiben): Katheterwechsel alle 3 Tage, Glukose steigt mit
 // dem Katheter-Alter; Sportmodus halbiert ungefähr den Abfall; Schlafmodus jede Nacht; Alarme in Nächten mit Tief;
 // unruhige Nächte erhöhen unruhige Momente und Schlafstress; Trainingsbereitschaft sinkt nach unruhigen Nächten.
+// Langzeit (nur mit longterm, dritter Zufallsstrom): ab Tag shiftDay liegt die Glukose um shiftDelta anders (Wendepunkt);
+// jede Woche hat ein eigenes Bewegungsniveau, Wochen mit mehr Schritten haben niedrigere Glukose.
 import {MIN,HOUR,DAY,dayStart,addDays,dayKey} from './time.mjs';
 import {rng} from './stats.mjs';
-export function synthetic({days=90,end=Date.now(),tz='Europe/Berlin',seed=42,gapDays=[]}={}){
+export function synthetic({days=90,end=Date.now(),tz='Europe/Berlin',seed=42,gapDays=[],longterm=false,shiftDay=Math.floor(days*.6),shiftDelta=-15}={}){
  const r=rng(seed),gauss=()=>{let s=0;for(let i=0;i<6;i++)s+=r();return (s-3)*1.41;};
  const r2=rng(seed+1000),g2=()=>{let s=0;for(let i=0;i<6;i++)s+=r2();return (s-3)*1.41;};
+ const r3=rng(seed+2000),week=longterm?Array.from({length:Math.ceil(days/7)+1},()=>{let s=0;for(let i=0;i<6;i++)s+=r3();return (s-3)*1.41;}):null;
  const lastKey=dayKey(end,tz),firstKey=addDays(lastKey,-(days-1));
  const glucose=[],treatments=[],activities=[],sleeps=[],daily=[],deviceEvents=[];
  const plan=[];
@@ -34,6 +37,7 @@ export function synthetic({days=90,end=Date.now(),tz='Europe/Berlin',seed=42,gap
    if(prev?.lateLow&&h>=2&&h<4.5)v-=70*Math.sin((h-2)/2.5*Math.PI);
    if(prev?.restless&&h<6)v+=35*Math.sin(h*2.1);
    if(p.compression&&h>=3&&h<3.5)v-=60*Math.sin((h-3)/.5*Math.PI);
+   if(week)v+=-6*week[Math.floor(d/7)]+(d>=shiftDay?shiftDelta:0);
    noise=.8*noise+gauss()*3;v=Math.max(40,Math.min(400,v+noise));
    glucose.push({time:t,value:Math.round(v),source:'share'});
   }
@@ -46,7 +50,7 @@ export function synthetic({days=90,end=Date.now(),tz='Europe/Berlin',seed=42,gap
   const nightStd=(prev?.restless?25:8)+(prev?.lateLow?15:0);
   if(prev)sleeps.push({night:p.key,start:sleepStart,end:sleepEnd,score:Math.round(Math.max(30,Math.min(98,88-nightStd*.9+gauss()*4))),deep:Math.round(70+gauss()*15),light:Math.round(240+gauss()*20),rem:Math.round(90+gauss()*15),awake:Math.round(20+nightStd*.6),hrv:Math.round(48-nightStd*.3+gauss()*4),rhr:Math.round(54+nightStd*.1+gauss()),
    spo2:Math.round(95+g2()*.8),spo2Low:Math.round(88+g2()*2),respiration:Math.round(13+g2()*.7),stress:Math.round(14+nightStd*.5+g2()*3),restless:Math.round(25+nightStd*1.3+g2()*5),bbChange:Math.round(55-nightStd*.6+g2()*5),awakeCount:Math.round(1+nightStd/12)});
-  daily.push({date:p.key,steps:Math.round(6500+(p.act?p.act.minutes*120:0)+gauss()*1500),intensityMinutes:p.act?p.act.minutes:Math.round(r()*10),stressAvg:Math.round(32+(prev?.restless?8:0)+gauss()*5),bbMax:Math.round(70+(prev?.restless?-15:0)+gauss()*8),bbMin:Math.round(15+gauss()*5),rhr:Math.round(54+gauss()),
+  daily.push({date:p.key,steps:Math.round(6500+(p.act?p.act.minutes*120:0)+gauss()*1500+(week?2000*week[Math.floor(d/7)]:0)),intensityMinutes:p.act?p.act.minutes:Math.round(r()*10),stressAvg:Math.round(32+(prev?.restless?8:0)+gauss()*5),bbMax:Math.round(70+(prev?.restless?-15:0)+gauss()*8),bbMin:Math.round(15+gauss()*5),rhr:Math.round(54+gauss()),
    readiness:Math.round(Math.max(10,Math.min(100,72-(prev?.restless?18:0)+g2()*7))),acwr:Math.round((1+g2()*.15)*10)/10,respiration:Math.round(14+g2()*.6),spo2:Math.round(96+g2()*.6)});
  }
  return {glucose,treatments,activities,sleeps,daily,deviceEvents};

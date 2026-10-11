@@ -192,3 +192,35 @@ Plan: `docs/PLAN-TANDEM-SICHER.md`.
 - Dashboard in zwei Seiten (`src/Pager.tsx`): „Jetzt“ und „Auswertung“. Wechsel per Ziehen mit gedrückter linker Maustaste, Touchpad- oder Touch-Wischen, Reiter in der Werkzeugleiste und Strg+←/→. Die Höhe folgt der aktiven Seite; ein Klick nach dem Wischen löst nichts aus; Bedienelemente (Knöpfe, Zeitbereich, Messpunkte) starten kein Wischen. Die Auswertung lädt erst beim ersten Öffnen.
 - Vorschau geprüft: Ziehen nach links → Auswertung (lädt, Höhe 1.899 px), Ziehen nach rechts → zurück, Strg+→/← wechseln; 375 px: Reiter in eigener Zeile, kein horizontales Überlaufen. `npm test` (84), `npx tsc --noEmit`, Build.
 - Offen: Wischen mit dem Touchpad in der installierten App.
+
+## Branch claude/langzeit – 11. Oktober 2026: Langzeit (PR D, 1.9.0)
+
+### Bestanden
+- `npm test`: 92 grün; neu `tests/longterm.test.mjs` (8 Tests):
+  - **Theil-Sen** ist robust gegen Ausreißer.
+  - **Mann-Kendall** liefert p = 1 bei konstanten Werten.
+  - **Wendepunkt** wird auf ±3 Tage gefunden. Reines Rauschen und AR(1) 0,7 ohne Bruch erzeugen keinen Scheinbruch.
+  - **Zeitraum-Vergleich** ist kalibriert: höchstens 18 von 200 Intervallen ohne 0 bei gleicher Verteilung (Autokorrelation 0 und 0,4).
+  - **Künstliche Daten mit 240 Tagen:**
+    - Der Wendepunkt im Mittelwert wird auf ±7 Tage gefunden.
+    - Der Trend „fallend“ wird erkannt.
+    - Der Wochen-Zusammenhang „mehr Schritte ↔ niedrigerer Mittelwert“ wird erkannt.
+    - Es gibt 9 Monate mit korrekten Teilmonaten.
+  - **Verschiebung in den letzten 4 Wochen** wird als „klar niedriger“ eingeordnet.
+  - **Bei 10 Tagen** gibt es keine Vergleiche, Trends oder Zusammenhänge, dafür einen Hinweis.
+  - **Gleichzeitige Veränderungen:** Ein Schritt-Sprung erscheint am Wendepunkt.
+- **Simulation** mit 200 Läufen (siehe `docs/PLAN-LANGZEIT.md`):
+  - Wendepunkte: höchstens 1,5 % Scheinbrüche.
+  - Zeitraum-Vergleich: Der Block-Bootstrap hatte 13 % Fehlalarme und wurde durch ein AR(1)-korrigiertes t-Intervall ersetzt (3 bis 8 %).
+- **Kopie der echten Datenbank:** 4 gültige Tage. Die Langzeit zeigt dafür keine Vergleiche und keine Trends, sondern einen Hinweis, ohne Fehler.
+- `npx tsc --noEmit`, Build.
+- **Vorschau** (240 künstliche Tage):
+  - Wochenverlauf mit Trendlinie und Wendepunkt „ab 17.07.“.
+  - Vergleichstabelle, Wendepunkte, Wochen-Zusammenhänge, Monatstabelle.
+  - 375 px im hellen Theme ohne Überlaufen. Die Tabellen scrollen in sich; die Karten Training, Nächte und Katheter ragten vorher 9 px über den Rand, das ist behoben.
+- **Nebenbei behoben:**
+  - Die inaktive Seite des Pagers war nicht `inert`: React 19 ignoriert `inert=""`, jetzt ist es ein Boolean.
+  - Eine Fehlergrenze um die Auswertung verhindert, dass ein Darstellungsfehler das Dashboard leert. Gefunden durch einen echten Absturz in der Entwicklung.
+
+### Offen
+- Langzeit mit mehreren Monaten echter Daten: Garmin- und Tandem-Nachladen sowie Clarity-Export.

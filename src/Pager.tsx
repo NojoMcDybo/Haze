@@ -39,7 +39,7 @@ export function Pager({page,onPage,labels,children}:{page:number,onPage:(p:numbe
   const stop=(ev:Event)=>{ev.stopPropagation();ev.preventDefault();};el.addEventListener('click',stop,{capture:true,once:true});setTimeout(()=>el.removeEventListener('click',stop,{capture:true}),50);
  };
  return <div ref={ref} className="pager" onScroll={onScroll} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} aria-roledescription="Seiten" >
-  {pages.map((p,i)=><section key={i} className="page" role="tabpanel" id={`page-${i}`} aria-label={labels[i]} aria-hidden={i!==page} inert={i!==page?('' as any):undefined}>{p}</section>)}
+  {pages.map((p,i)=><section key={i} className="page" role="tabpanel" id={`page-${i}`} aria-label={labels[i]} aria-hidden={i!==page} inert={i!==page}>{p}</section>)}
  </div>;
 }
 // Reiter für die Seiten (Strg+Pfeiltasten wechseln ebenfalls).
