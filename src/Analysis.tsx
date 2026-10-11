@@ -8,10 +8,12 @@ const dateKey=(k:string)=>{const [y,m,d]=k.split('-');return `${d}.${m}.`;};
 const hhmm=(min:number)=>`${String(Math.floor(min/60)).padStart(2,'0')}:${String(min%60).padStart(2,'0')}`;
 const SPORT:any={running:'Laufen',cycling:'Radfahren',road_biking:'Rennrad',mountain_biking:'Mountainbike',indoor_cycling:'Indoor-Rad',walking:'Gehen',hiking:'Wandern',strength_training:'Krafttraining',lap_swimming:'Schwimmen',open_water_swimming:'Freiwasser',yoga:'Yoga',cardio:'Cardio',hiit:'HIIT',treadmill_running:'Laufband',soccer:'Fußball',tennis:'Tennis',sonstige:'Sonstige'};
 const BANDS=[['veryLow','unter 54'],['low','54–69'],['target','70–180'],['high','181–250'],['veryHigh','über 250']];
-export function Analysis({state,load,unit}:any){
+// active: Seite sichtbar. Geladen wird erst beim ersten Öffnen der Seite, danach bei neuen Daten.
+export function Analysis({state,load,unit,active=true}:any){
  const [days,setDays]=useState(14),[res,setRes]=useState<any>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const lastRun=state.data?.lastRun,source=state.config.source;
- useEffect(()=>{let live=true;setBusy(true);setError('');load(days).then((r:any)=>{if(!live)return;if(r?.error||!r?.summary)setError(r?.error||'Auswertung nicht verfügbar.');else setRes(r);}).catch((e:any)=>live&&setError(e.message)).finally(()=>live&&setBusy(false));return()=>{live=false;};},[days,lastRun,source]);
+ const opened=useRef(false);if(active)opened.current=true;
+ useEffect(()=>{if(!opened.current)return;let live=true;setBusy(true);setError('');load(days).then((r:any)=>{if(!live)return;if(r?.error||!r?.summary)setError(r?.error||'Auswertung nicht verfügbar.');else setRes(r);}).catch((e:any)=>live&&setError(e.message)).finally(()=>live&&setBusy(false));return()=>{live=false;};},[days,lastRun,source,active&&!res]);
  const s=res?.summary;
  return <section className="analysis" aria-label="Auswertung">
   <div className="analysis-head"><div><span className="eyebrow">AUSWERTUNG</span><h2>Deine letzten {days} Tage</h2></div>

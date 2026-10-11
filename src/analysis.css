@@ -61,3 +61,13 @@
 .tandem-form{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;align-items:end}.tandem-form .field{margin:12px 0}.tandem-form .button{grid-column:1/-1}
 .garmin-steps .compact-button{margin-left:8px;vertical-align:middle}
 @media(max-width:560px){.tandem-form{grid-template-columns:1fr}}
+/* Zwei Seiten (Jetzt | Auswertung), per Wischen erreichbar. Rand im Pager, damit Kartenschatten nicht abgeschnitten werden. */
+.pager{display:flex;align-items:flex-start;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;margin:0 -18px;transition:height .25s ease}
+.pager::-webkit-scrollbar{display:none}
+.pager.dragging{scroll-snap-type:none;cursor:grabbing;user-select:none}
+.page{flex:0 0 100%;min-width:0;scroll-snap-align:start;scroll-snap-stop:always;padding:2px 18px 30px;box-sizing:border-box}
+.page>.analysis{margin-top:0}
+.page-tabs{padding:3px}
+.page-tabs button{padding:7px 13px;font-size:11px}
+@media(prefers-reduced-motion:reduce){.pager{transition:none}}
+@media(max-width:700px){.toolbar-actions{flex-wrap:wrap;justify-content:flex-end;row-gap:10px}.page-tabs{order:9;flex-basis:100%;justify-content:center}.page-tabs button{flex:1;padding:7px 9px;font-size:11px}}
