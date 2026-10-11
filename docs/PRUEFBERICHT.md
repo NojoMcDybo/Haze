@@ -186,3 +186,9 @@ Plan: `docs/PLAN-TANDEM-SICHER.md`.
 
 ### Offen
 - Mit echten Pumpen- und Garmin-Daten (nach Tandem-Anmeldung in der App).
+
+## Branch claude/analyse-seite – 11. Oktober 2026: Auswertung als zweite Seite
+
+- Dashboard in zwei Seiten (`src/Pager.tsx`): „Jetzt“ und „Auswertung“. Wechsel per Ziehen mit gedrückter linker Maustaste, Touchpad- oder Touch-Wischen, Reiter in der Werkzeugleiste und Strg+←/→. Die Höhe folgt der aktiven Seite; ein Klick nach dem Wischen löst nichts aus; Bedienelemente (Knöpfe, Zeitbereich, Messpunkte) starten kein Wischen. Die Auswertung lädt erst beim ersten Öffnen.
+- Vorschau geprüft: Ziehen nach links → Auswertung (lädt, Höhe 1.899 px), Ziehen nach rechts → zurück, Strg+→/← wechseln; 375 px: Reiter in eigener Zeile, kein horizontales Überlaufen. `npm test` (84), `npx tsc --noEmit`, Build.
+- Offen: Wischen mit dem Touchpad in der installierten App.
