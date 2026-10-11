@@ -1,5 +1,5 @@
 // Kontextfenster: Glukose rund um Aktivitäten, in Nächten und pro Tag, verbunden mit Garmin- und Pumpendaten.
-import {MIN,HOUR,dayStart,addDays,dayKey,minuteOfDay} from './time.mjs';
+import {MIN,HOUR,DAY,dayStart,addDays,dayKey,minuteOfDay} from './time.mjs';
 import {summary,episodes,RANGES} from './glucose.mjs';
 import {median,mean} from './stats.mjs';
 // Binärsuche: erster Index mit time >= t.
@@ -28,7 +28,7 @@ export function activityContext(entries,activities=[],{treatments=[],hypoEpisode
    ratePerMin:startValue!=null&&endValue!=null&&minutes>0?round((endValue-startValue)/minutes,2):null,
    hypoDuring:lows.some(l=>l.start<a.end+2*HOUR&&l.end>a.start),lateHypos:late.length,firstLateHypo:late[0]?.start??null,
    carbsAround:total(treatments,'carbs',a.start-HOUR,a.end),bolusBefore:round(total(treatments,'insulin',a.start-3*HOUR,a.start),1),
-   exerciseMode:modeActive(treatments,'exercise_mode',a.start,a.end),
+   exerciseMode:modeActive(treatments,'exercise_mode',a.start,a.end),suspended:treatments.some(t=>t.type==='suspend'&&t.time>=a.start-HOUR&&t.time<a.end),
    avgHr:a.avgHr??null,maxHr:a.maxHr??null,load:a.load??null,trainingEffect:a.trainingEffect??null,kcal:a.kcal??null,
    coverage:Math.min(1,round(covered,2))};
  });
@@ -38,6 +38,12 @@ export function activityTypes(contexts){
  return [...by].map(([type,list])=>{const v=k=>list.map(c=>c[k]).filter(Number.isFinite);
   return {type,n:list.length,minutes:round(median(v('minutes'))),startValue:round(median(v('startValue'))),change:round(median(v('change'))),drop:round(median(v('drop'))),
    hypoDuring:list.filter(c=>c.hypoDuring).length,withLateHypo:list.filter(c=>c.lateHypos>0).length};}).sort((a,b)=>b.n-a.n);
+}
+// Training mit und ohne Sportmodus (Control-IQ) nebeneinander, rein beschreibend.
+export function activityModes(contexts){
+ const part=list=>{const v=k=>list.map(c=>c[k]).filter(Number.isFinite);return {n:list.length,drop:round(median(v('drop'))),change:round(median(v('change'))),startValue:round(median(v('startValue'))),
+  hypoShare:list.length?round(list.filter(c=>c.hypoDuring).length/list.length,2):null,lateShare:list.length?round(list.filter(c=>c.lateHypos>0).length/list.length,2):null};};
+ return {with:part(contexts.filter(c=>c.exerciseMode)),without:part(contexts.filter(c=>!c.exerciseMode))};
 }
 // Nächte aus Garmin-Schlaf; ohne Schlafdaten die Konsens-Nacht 00–06 Uhr.
 export function nightWindows(sleeps,dayKeys,tz){
@@ -51,6 +57,7 @@ export function nightContext(entries,nights,{treatments=[],alarms=[],compression
   const nadir=early.reduce((m,e)=>m==null||e.value<m?e.value:m,null);
   return {night:n.night,start:n.start,end:n.end,source:n.source,hours:round((n.end-n.start)/HOUR,1),
    score:n.score??null,deep:n.deep??null,light:n.light??null,rem:n.rem??null,awake:n.awake??null,hrv:n.hrv??null,rhr:n.rhr??null,
+   spo2:n.spo2??null,spo2Low:n.spo2Low??null,respiration:n.respiration??null,sleepStress:n.stress??null,restless:n.restless??null,bbChange:n.bbChange??null,awakeCount:n.awakeCount??null,
    mean:round(s.mean),cv:round(s.cv,1),tir:round(s.tir,1),tbr:round(s.tbr,1),tar:round(s.tar,1),coverage:round(s.coverage,2),
    min:window.length?Math.min(...window.map(e=>e.value)):null,hypos:lows.length,
    compression:compression.filter(c=>c.nadirTime>=n.start&&c.nadirTime<n.end).length,
@@ -64,17 +71,27 @@ function basalUnits(treatments,from,to){
  let u=0;for(const t of treatments){if(t.type!=='basal'||!Number.isFinite(t.rate))continue;const s=Math.max(from,t.time),e=Math.min(to,t.time+(t.duration||0)*MIN);if(e>s)u+=t.rate*(e-s)/HOUR;}
  return u;
 }
-export function dayContext(entries,dayKeys,tz,{daily=[],nights=[],activities=[],treatments=[]}={}){
- const dailyBy=new Map(daily.map(d=>[d.date,d])),nightBy=new Map(nights.map(n=>[n.night,n]));
+// siteChanges: Zeitpunkte von Katheterwechseln (Pumpe); siteAge = Tage seit dem letzten Wechsel (0 = Wechseltag).
+export function dayContext(entries,dayKeys,tz,{daily=[],nights=[],activities=[],treatments=[],siteChanges=[]}={}){
+ const dailyBy=new Map(daily.map(d=>[d.date,d])),nightBy=new Map(nights.map(n=>[n.night,n])),sites=[...siteChanges].sort((a,b)=>a-b);
  return dayKeys.map(k=>{
   const from=dayStart(k,tz),to=dayStart(addDays(k,1),tz),s=summary(entries,from,to),g=dailyBy.get(k)||{},n=nightBy.get(k);
   const acts=activities.filter(a=>a.start>=from&&a.start<to);
+  const last=sites.filter(t=>t<to).at(-1),siteAge=last==null?null:Math.round((from-dayStart(dayKey(last,tz),tz))/DAY);
   return {date:k,mean:round(s.mean),sd:round(s.sd),cv:round(s.cv,1),tir:round(s.tir,1),tbr:round(s.tbr,1),tar:round(s.tar,1),coverage:round(s.coverage,2),
    steps:g.steps??null,intensityMinutes:g.intensityMinutes??null,stressAvg:g.stressAvg??null,bbMax:g.bbMax??null,bbMin:g.bbMin??null,rhr:g.rhr??null,
    sleepScore:n?.score??null,sleepHours:n&&n.source==='garmin'?n.hours:null,hrv:n?.hrv??null,nightTir:n?.tir??null,nightTbr:n?.tbr??null,nightCv:n?.cv??null,nightHypos:n?.hypos??null,
    activityMinutes:acts.length?round(acts.reduce((x,a)=>x+(a.end-a.start)/MIN,0)):0,activityLoad:acts.some(a=>Number.isFinite(a.load))?round(acts.reduce((x,a)=>x+(a.load||0),0)):null,
-   bolus:round(total(treatments.filter(t=>t.type==='bolus'),'insulin',from,to),1),basal:round(basalUnits(treatments,from,to),1),carbs:round(total(treatments,'carbs',from,to))};
+   bolus:round(total(treatments.filter(t=>t.type==='bolus'),'insulin',from,to),1),basal:round(basalUnits(treatments,from,to),1),carbs:round(total(treatments,'carbs',from,to)),
+   readiness:g.readiness??null,readinessLevel:g.readinessLevel??null,acwr:g.acwr??null,acuteLoad:g.acuteLoad??null,recoveryTime:g.recoveryTime??null,respiration:g.respiration??null,spo2:g.spo2??null,
+   siteAge:siteAge!=null&&siteAge>=0&&siteAge<=10?siteAge:null,sleepMode:n?.sleepMode??null,nightAlarms:n?.alarms??null};
  });
+}
+// Glukose nach Katheter-Alter (Tag 0 = Wechseltag, 3 = drei und mehr Tage), Median der Tageswerte.
+export function siteAges(days){
+ const groups=[0,1,2,3].map(age=>{const list=days.filter(d=>d.siteAge!=null&&(age<3?d.siteAge===age:d.siteAge>=3)&&Number.isFinite(d.mean));
+  return {age,n:list.length,mean:round(median(list.map(d=>d.mean))),tir:round(median(list.map(d=>d.tir)),1),tar:round(median(list.map(d=>d.tar)),1)};});
+ return groups.some(g=>g.n)?groups:[];
 }
 // Stundenprofil: mittlere Glukose je Tagesstunde, getrennt nach Tagen mit und ohne Aktivität (für die Übersicht).
 export function hourlyProfile(entries,tz){

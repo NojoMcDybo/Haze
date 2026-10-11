@@ -177,3 +177,12 @@ Plan: `docs/PLAN-TANDEM-SICHER.md`.
 
 ### Offen
 - Ende-zu-Ende-Abruf mit echtem Konto in Haze (Testsitzung abgelaufen).
+
+## Branch claude/auswertung-pumpe – 11. Oktober 2026: Auswertung mit Pumpen- und Garmin-Zusatzdaten (PR C)
+
+### Bestanden
+- `npm test`: 84 grün. Neu: künstliche Daten mit Katheter-Effekt, Sportmodus, Schlafmodus, Alarmen, Schlaf-Zusatzwerten und Bereitschaft (eigener Zufallsstrom, übrige Daten unverändert); gefunden werden „nächtliche Schwankung ↔ unruhige Momente“ und „Katheter-Alter ↔ Mittelwert“; Sportmodus zeigt kleineren Abfall; Katheter-Alter am Wechseltag 0, nach 2 Tagen 2, älter als 10 Tage nicht gezählt; Hinweise ohne getrennte Drittel werden unterdrückt.
+- `npx tsc --noEmit`, Build; Vorschau 90 Tage: Trainingskarte mit Sportmodus-Vergleich, neue Karte „Glukose nach Katheter-Tag“, Nachttabelle mit Alarmen und SpO2; 375 px ohne horizontales Überlaufen.
+
+### Offen
+- Mit echten Pumpen- und Garmin-Daten (nach Tandem-Anmeldung in der App).

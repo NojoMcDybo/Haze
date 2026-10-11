@@ -12,6 +12,11 @@ export const VARIABLES={
  bbMax:{more:'höherer Body Battery',fmt:v=>de(v)},
  rhr:{more:'höherem Ruhepuls',fmt:v=>de(v)+' bpm'},
  sleepScore:{more:'höherem Schlafwert in der Nacht davor',fmt:v=>de(v)},
+ readiness:{more:'höherer Trainingsbereitschaft (Garmin)',fmt:v=>de(v)},
+ acwr:{more:'höherer Belastungsquote (akut/chronisch)',fmt:v=>de(v,1)},
+ siteAge:{more:'älterem Katheter',fmt:v=>`Tag ${de(v)}`},
+ restless:{subject:'die Zahl unruhiger Momente',fmt:v=>de(v)},
+ sleepStress:{subject:'der Schlafstress (Garmin)',fmt:v=>de(v)},
  sleepHours:{more:'längerem Schlaf in der Nacht davor',fmt:v=>de(v,1)+' h'},
  hrv:{more:'höherer nächtlicher HRV',subject:'die HRV',fmt:v=>de(v)+' ms'},
  score:{subject:'der Schlafwert',fmt:v=>de(v)},
@@ -19,6 +24,7 @@ export const VARIABLES={
  alarms:{more:'mehr CGM-Alarmen',fmt:v=>de(v)},
  hypos:{more:'mehr Tiefs',fmt:v=>de(v)},
  tir:{more:'mehr Zeit im Bereich',subject:'die Zeit im Bereich',fmt:v=>de(v)+' %'},
+ tar:{subject:'die Zeit über 180',fmt:v=>de(v)+' %'},
  tbr:{subject:'die Zeit unter 70',event:'zu Werten unter 70',fmt:v=>de(v,1)+' %'},
  mean:{more:'höherem Glukosemittel',subject:'der Glukosemittelwert',fmt:v=>de(v)+' mg/dL'},
  cv:{more:'stärkerer Glukoseschwankung',subject:'die Schwankung (CV)',fmt:v=>de(v)+' %'},
@@ -38,6 +44,8 @@ export const HYPOTHESES=[
  {scope:'days',x:'sleepScore',y:'tir'},{scope:'days',x:'sleepHours',y:'mean'},{scope:'days',x:'hrv',y:'tir'},{scope:'days',x:'rhr',y:'mean'},
  {scope:'nights',x:'cv',y:'score'},{scope:'nights',x:'hypos',y:'score'},{scope:'nights',x:'alarms',y:'score'},
  {scope:'nights',x:'tir',y:'hrv'},{scope:'nights',x:'mean',y:'deep'},
+ {scope:'days',x:'readiness',y:'tir'},{scope:'days',x:'acwr',y:'tbr'},{scope:'days',x:'siteAge',y:'mean',levels:3},{scope:'days',x:'siteAge',y:'tar',levels:3},
+ {scope:'nights',x:'cv',y:'restless'},{scope:'nights',x:'hypos',y:'restless'},{scope:'nights',x:'mean',y:'sleepStress'},
  {scope:'activities',x:'minutes',y:'drop'},{scope:'activities',x:'avgHr',y:'drop'},{scope:'activities',x:'trainingEffect',y:'lateHypos'},
 ];
 const MIN_N={days:14,nights:14,activities:10};
@@ -60,14 +68,15 @@ export function insights(tables,{seed=7,permutations=999,bootstrap=999,alpha=.1,
  const tested=[];
  for(const h of HYPOTHESES){
   const rows=tables[h.scope]||[],p=pairs(rows,h),min=MIN_N[h.scope];
-  if(p.length<min||new Set(p.map(v=>v[0])).size<4||new Set(p.map(v=>v[1])).size<3){tested.push({...h,n:p.length,status:'zu wenige Daten'});continue;}
+  if(p.length<min||new Set(p.map(v=>v[0])).size<(h.levels??4)||new Set(p.map(v=>v[1])).size<3){tested.push({...h,n:p.length,status:'zu wenige Daten'});continue;}
   const res=spearmanTest(p.map(v=>v[0]),p.map(v=>v[1]),{permutations,bootstrap,seed});
   const sorted=[...p].sort((a,b)=>a[0]-b[0]),k=Math.floor(sorted.length/3),lo=sorted.slice(0,k),hi=sorted.slice(-k);
   const groups={low:{n:lo.length,max:lo.at(-1)[0],median:median(lo.map(v=>v[1])),share:share(lo.map(v=>v[1]))},high:{n:hi.length,min:hi[0][0],median:median(hi.map(v=>v[1])),share:share(hi.map(v=>v[1]))}};
   tested.push({...h,...res,groups,difference:medianDifference(hi.map(v=>v[1]),lo.map(v=>v[1]),{bootstrap,seed}),status:'geprüft'});
  }
  const run=tested.filter(t=>t.status==='geprüft'),q=fdr(run.map(t=>t.p));run.forEach((t,i)=>{t.q=q[i];});
- const found=run.filter(t=>t.rho!=null&&Math.abs(t.rho)>=minRho&&t.q<=alpha&&t.ci&&(t.ci[0]>0||t.ci[1]<0))
+ // Nur Hinweise, deren Drittel sich auch trennen (bei vielen gleichen Werten wäre „ab 100 %“ vs. „bis 100 %“ sinnlos).
+ const found=run.filter(t=>t.rho!=null&&Math.abs(t.rho)>=minRho&&t.q<=alpha&&t.ci&&(t.ci[0]>0||t.ci[1]<0)&&t.groups.high.min>t.groups.low.max)
   .map(t=>({id:`${t.scope}:${t.x}:${t.y}:${t.lag||0}`,scope:t.scope,x:t.x,y:t.y,lag:t.lag||0,n:t.n,rho:t.rho,ci:t.ci,p:t.p,q:t.q,
    strength:Math.abs(t.rho)>=.5?'deutlich':'mäßig',direction:t.rho>0?'gleichläufig':'gegenläufig',groups:t.groups,difference:t.difference,text:describe(t,t,t.groups)}))
   .sort((a,b)=>Math.abs(b.rho)-Math.abs(a.rho));

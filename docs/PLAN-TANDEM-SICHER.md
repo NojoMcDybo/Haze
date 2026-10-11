@@ -1,6 +1,6 @@
 # Plan: Tandem sicher anbinden und mehr Daten sammeln
 
-Stand: 11. Oktober 2026 · Status: PR A gemergt (#19, Release v1.6.0); **PR B umgesetzt** (Branch `claude/garmin-mehr`); C offen
+Stand: 11. Oktober 2026 · Status: PR A gemergt (#19, v1.6.0), PR B gemergt (#20, 1.7.0); **PR C umgesetzt** (Branch `claude/auswertung-pumpe`)
 
 Ziel: Pumpendaten aus Tandem Source wieder nutzen, **ohne** Passwort im Klartext, **ohne** Schreibrechte auf Nightscout und ohne weitere Sicherheitslücken. Außerdem möglichst viele zusätzliche Daten für die Auswertung erfassen.
 
@@ -90,3 +90,10 @@ Reihenfolge: PR #16–#18 sind gemergt. A ist umgesetzt, danach B und C jeweils 
 - `reprocess`: einmalige Neuauswertung aus Rohdaten nach Updates (`meta.garmin-normalizer`).
 - Schema v3: neue Spalten in `sleep` und `daily`.
 - Geprüft gegen echte Garmin-Antworten (Spike-Rohdaten vom 7./11. Oktober). Ende-zu-Ende-Lauf offen: Die kopierte Testsitzung ist abgelaufen (Garmin erneuert die Anmeldung beim Abruf; in Haze bleibt die Sitzung im selben Profil und wird mit erneuert).
+
+### Umsetzung C (11. Oktober)
+- Training: Sportmodus und Basal-Unterbrechung je Training; Vergleich mit/ohne Sportmodus (Abfall, Anteil Tiefs, späte Tiefs) als eigene Tabelle (`activityModes`).
+- Nächte: SpO2 (Mittel/Tiefstwert), Atmung, Schlafstress, unruhige Momente, Body-Battery-Erholung, Wachphasen; CGM-/Pumpenalarme und Schlafmodus.
+- Tage: Katheter-Alter (Tage seit Wechsel, aus Pumpenereignissen), Trainingsbereitschaft, ACWR, akute Last, Erholungszeit, Atmung, SpO2; Tabelle „Glukose nach Katheter-Tag“ (`siteAges`).
+- Neue Hypothesen: Bereitschaft→Zeit im Bereich, ACWR→Zeit unter 70, Katheter-Alter→Mittelwert/Zeit über 180, nächtliche Schwankung→unruhige Momente, Tiefs→unruhige Momente, Nachtmittel→Schlafstress. Weiterhin keine Hypothesen über Insulin- oder KH-Mengen.
+- Leitplanke neu: Hinweise nur, wenn sich oberes und unteres Drittel tatsächlich trennen; diskrete Größen (Katheter-Tag) mit mindestens 3 Stufen.

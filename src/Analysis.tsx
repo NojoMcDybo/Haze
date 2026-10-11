@@ -35,6 +35,7 @@ export function Analysis({state,load,unit}:any){
    <div className="analysis-grid">
     <Activities res={res}/>
     <Nights res={res}/>
+    <Sites res={res} unit={unit}/>
    </div>
    <Weeks weeks={res.weeks} unit={unit}/>
    </>}
@@ -98,14 +99,31 @@ function Activities({res}:any){
   {t.length?<table className="analysis-table"><thead><tr><th>Sportart</th><th>n</th><th title="Median beim Start">Start</th><th title="Median Abfall bis 2 h nach dem Ende">Abfall</th><th title="Trainings mit Wert unter 70 währenddessen oder bis 2 h danach">Tief</th><th title="Trainings mit Tief 2–24 h danach">später</th></tr></thead>
    <tbody>{t.map((a:any)=><tr key={a.type}><td>{SPORT[a.type]||a.type}</td><td>{a.n}</td><td>{a.startValue??'—'}</td><td>{a.drop!=null?`−${a.drop}`:'—'}</td><td>{a.hypoDuring}</td><td>{a.withLateHypo}</td></tr>)}</tbody></table>
   :<p className="fine">Trainings kommen nach der Garmin-Anmeldung (Einstellungen › Daten).</p>}
+  <Modes m={res.activityModes}/>
+ </article>;
+}
+// Mit und ohne Sportmodus (Control-IQ) – nur, wenn es beide Gruppen gibt. Beschreibend, keine Empfehlung.
+function Modes({m}:any){
+ if(!m||!m.with.n||!m.without.n)return null;
+ const row=(label:string,g:any)=><tr><td>{label}</td><td>{g.n}</td><td>{g.drop!=null?`−${g.drop}`:'—'}</td><td>{g.hypoShare!=null?`${Math.round(g.hypoShare*100)} %`:'—'}</td><td>{g.lateShare!=null?`${Math.round(g.lateShare*100)} %`:'—'}</td></tr>;
+ return <><p className="fine tight">Sportmodus der Pumpe beim Training:</p>
+  <table className="analysis-table"><thead><tr><th></th><th>n</th><th title="Median Abfall bis 2 h nach dem Ende">Abfall</th><th title="Anteil mit Wert unter 70 währenddessen oder bis 2 h danach">Tief</th><th title="Anteil mit Tief 2–24 h danach">später</th></tr></thead>
+   <tbody>{row('mit Sportmodus',m.with)}{row('ohne',m.without)}</tbody></table></>;
+}
+// Glukose nach Katheter-Alter (aus Katheterwechseln der Pumpe).
+function Sites({res,unit}:any){
+ const g=(res.siteAges||[]).filter((x:any)=>x.n>0);if(!g.length)return null;
+ return <article className="analysis-card"><div className="card-top"><div><span className="eyebrow">KATHETER</span><h3>Glukose nach Katheter-Tag</h3></div><span className="chart-label">Median je Tag</span></div>
+  <table className="analysis-table"><thead><tr><th>Katheter-Tag</th><th>Tage</th><th>Mittel</th><th>Im Bereich</th><th>Über 180</th></tr></thead>
+   <tbody>{g.map((x:any)=><tr key={x.age}><td>{x.age===0?'Wechseltag':x.age===3?'Tag 3+':`Tag ${x.age}`}</td><td>{x.n}</td><td>{format(x.mean,unit)}</td><td>{pct(x.tir)} %</td><td>{pct(x.tar)} %</td></tr>)}</tbody></table>
  </article>;
 }
 function Nights({res}:any){
  const n=res.nights.filter((x:any)=>x.source==='garmin').slice(-7).reverse(),all=res.nights;
  const withLow=all.filter((x:any)=>x.hypos>0).length;
  return <article className="analysis-card"><div className="card-top"><div><span className="eyebrow">NÄCHTE</span><h3>{n.length?'Schlaf und Glukose':'Nächte (0–6 Uhr)'}</h3></div><span className="chart-label">{withLow} von {all.length} mit Tief</span></div>
-  {n.length?<table className="analysis-table"><thead><tr><th>Nacht</th><th>Schlaf</th><th>Dauer</th><th>Im Bereich</th><th>Min.</th><th>Tiefs</th></tr></thead>
-   <tbody>{n.map((x:any)=><tr key={x.night}><td>{dateKey(x.night)}</td><td>{x.score??'—'}</td><td>{pct(x.hours,1)} h</td><td>{pct(x.tir)} %</td><td>{x.min??'—'}</td><td>{x.hypos}{x.compression?<span className="muted" title="mögliches Kompressionstief erkannt und ausgeklammert"> (K)</span>:''}</td></tr>)}</tbody></table>
+  {n.length?<table className="analysis-table"><thead><tr><th>Nacht</th><th>Schlaf</th><th>Dauer</th><th>Im Bereich</th><th>Min.</th><th>Tiefs</th><th title="CGM- und Pumpenalarme in der Nacht">Alarme</th><th title="SpO2 im Schlaf: Mittel / Tiefstwert (Garmin)">SpO2</th></tr></thead>
+   <tbody>{n.map((x:any)=><tr key={x.night}><td>{dateKey(x.night)}</td><td>{x.score??'—'}</td><td>{pct(x.hours,1)} h</td><td>{pct(x.tir)} %</td><td>{x.min??'—'}</td><td>{x.hypos}{x.compression?<span className="muted" title="mögliches Kompressionstief erkannt und ausgeklammert"> (K)</span>:''}</td><td>{x.alarms}</td><td>{x.spo2!=null?`${x.spo2}/${x.spo2Low??'—'}`:'—'}</td></tr>)}</tbody></table>
   :<p className="fine">Ohne Schlafdaten zählt die Konsens-Nacht von 0 bis 6 Uhr. Mit Garmin kommen Schlafwert, Phasen und HRV dazu.</p>}
  </article>;
 }
