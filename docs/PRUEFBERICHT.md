@@ -312,3 +312,22 @@ Plan: `docs/PLAN-TANDEM-SICHER.md`.
 
 ### Offen
 - Die sichtbaren Animationen selbst (Gleiten, Zoom, Morph, Zeichnen) im sichtbaren Fenster bzw. in der installierten App ansehen.
+
+## Branch claude/koerper – 12. Oktober 2026: Schlaf und Tag (1.14.0)
+
+### Bestanden
+- `npm test`: 112 grün. Neu sind 4 Tests in `tests/body.test.mjs`:
+  - Zeitfenster.
+  - Nacht mit Phasen und Glukose, Tag mit Verläufen; ohne Schlaf nur der Tag.
+  - „Höher, niedriger, üblich“ gegen die mittlere Hälfte der 28 Tage davor.
+  - `store.body` ohne Trainingsdetails.
+- **Kopie der echten Datenbank** (82 Tage Garmin):
+  - Nacht zum 11.10.: 7,4 h, Schlafwert 87, 13 Phasen, Glukose 100 % im Bereich.
+  - Tag: 480 Body-Battery-Werte, 95 Stress-Fenster, 24 Stunden Schritte.
+  - Kacheln: HRV und Schlafwert höher als üblich.
+  - Analyse-Thread: 0,1 s; ältere Tage (15.08.) lassen sich laden.
+- **Vorschau:** Nacht- und Tageskarte, 4-Wochen-Kacheln, Blättern zwischen Tagen. Das Schlafband auf „Jetzt“ erscheint im 24-Stunden-Verlauf („Schlaf 23:20 bis 07:10“).
+- `npx tsc --noEmit`, Build.
+
+### Offen
+- In der installierten App mit echten Daten ansehen.

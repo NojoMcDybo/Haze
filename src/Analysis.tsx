@@ -5,6 +5,7 @@ import {Longterm} from './Longterm';
 import {Sources} from './Sources';
 import {More} from './More';
 import {ForecastCard} from './Forecast';
+import {Body} from './Body';
 import {useTween,useTweenArray} from './motion';
 // Zahl, die zum neuen Wert zählt (Kennzahlen, Legende).
 export function Num({v,f}:{v:any,f:(x:any)=>string}){const t=useTween(v);return <>{f(v==null?v:t)}</>;}
@@ -22,7 +23,7 @@ class Guard extends React.Component<{children:React.ReactNode},{error:string}>{
  render(){return this.state.error?<div className="notice n-liquid panel" role="status">Dieser Teil der Auswertung konnte nicht angezeigt werden ({this.state.error}).</div>:this.props.children;}
 }
 // active: Seite sichtbar. Geladen wird erst beim ersten Öffnen der Seite, danach bei neuen Daten.
-export function Analysis({state,load,loadLong,loadForecast,unit,act,openSettings,active=true}:any){
+export function Analysis({state,load,loadLong,loadForecast,loadBody,unit,act,openSettings,active=true}:any){
  const [days,setDays]=useState(14),[res,setRes]=useState<any>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const lastRun=state.data?.lastRun,source=state.config.source;
  const opened=useRef(false);if(active)opened.current=true;
@@ -56,6 +57,7 @@ export function Analysis({state,load,loadLong,loadForecast,unit,act,openSettings
    </>}
    <More label="Wie belastbar ist das?"><ul className="caveats">{res.caveats.map((c:string)=><li key={c}>{c}</li>)}</ul></More>
   </div></Guard>}
+  {loadBody&&<Guard><Body load={loadBody} unit={unit} active={opened.current} lastRun={lastRun} source={source}/></Guard>}
   {loadLong&&<Guard><Longterm load={loadLong} unit={unit} active={opened.current} lastRun={lastRun} source={source}/></Guard>}
   {loadForecast&&act&&<Guard><ForecastCard state={state} act={act} load={loadForecast} active={opened.current}/></Guard>}
  </section>;

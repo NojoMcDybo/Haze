@@ -35,6 +35,12 @@ Bewegung zeigt, was sich geändert hat, und hört dann auf (`src/motion.ts`, `sr
 - **Laden:** Schimmernde Platzhalter in der Form der Seite statt „wird berechnet …“.
 - **Abschalten:** „Bewegung reduzieren“ in Haze oder in Windows schaltet alles ab. Bei verdecktem Fenster springen Werte sofort ans Ziel, weil der Browser dort die Bildwiederholung pausiert. Ein Rückfall sorgt dafür, dass keine Karte unsichtbar bleibt.
 
+## Schlaf und Tag (1.14)
+
+- **Gemeinsame Zeitachse:** Garmin-Werte stehen unter der Glukose auf derselben Zeitachse, mit einem Zeiger für alle Streifen. So sieht man zusammen, was zusammen passiert ist.
+- **Unbunt wie in Nebel:** Verläufe in Tinte, Stress und Schritte als blasse Balken. Farbe tragen nur die Schwellen 70 und 180.
+- **Tage blättern** statt Zeitraum wählen: Eine Nacht und ein Tag sind die natürliche Einheit.
+
 ## Nächste Schritte (vorgeschlagen)
 
 - **Kennzahlen als eine Karte mit zwei Spalten** statt fünf Kacheln, wie die `statlist` in Nebel. Das ist ruhiger und auf dem Handy kürzer.

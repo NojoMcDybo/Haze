@@ -148,3 +148,29 @@ body.paging,body.paging *{user-select:none!important;cursor:grabbing!important}
 .forecast-card .verdict{font-size:13px;line-height:1.55;margin:10px 0}
 .forecast-table tr.best td{font-weight:650}
 .forecast-actions{margin-top:12px;flex-wrap:wrap;justify-content:flex-start;gap:10px}
+/* Schlaf und Tag (Garmin): unbunt wie in Nebel – Tinte für Verläufe, Farbe nur an den Schwellen */
+.body-view{margin-top:22px;display:flex;flex-direction:column;gap:14px}
+.day-nav{display:flex;gap:8px}.day-nav .icon-button{font-size:20px;line-height:1}
+.body-grid{align-items:start}
+.body-chart svg{height:auto;aspect-ratio:auto}
+.night-card .score{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;padding:4px 12px;border-radius:12px;background:var(--pill)}
+.body-glucose{fill:none;stroke:var(--text);stroke-width:1.8;stroke-linejoin:round}
+.body-dot{fill:var(--text)}
+.sleep-span{fill:var(--text);opacity:.035}
+.lane{stroke:var(--border);stroke-width:1}
+.hypnogram{fill:none;stroke:var(--text);stroke-width:2.2;stroke-linejoin:round;opacity:.85}
+.stress-bar{fill:var(--muted);opacity:.28}
+.bb-line{fill:none;stroke:var(--text);stroke-width:1.8;stroke-linejoin:round}
+.steps-bar{fill:var(--muted);opacity:.45}
+.agp text.strip-label{fill:var(--muted);font-size:10px;letter-spacing:.04em}
+.body-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px 16px;margin:10px 0 4px;font-size:12px}
+.body-stats div{display:flex;flex-direction:column;gap:2px}.body-stats dt{font-size:10px;color:var(--muted);letter-spacing:.04em}.body-stats dd{margin:0;font-variant-numeric:tabular-nums}
+.trend-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.trend-tile{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border-radius:14px;background:var(--pill)}
+.trend-tile .eyebrow{font-size:9px}.trend-tile b{font-size:20px;font-weight:650;font-variant-numeric:tabular-nums}.trend-tile b small{font-size:11px;color:var(--muted);font-weight:500}
+.trend-tile small{font-size:10px;color:var(--muted);line-height:1.4}
+.trend-tile.höher small,.trend-tile.niedriger small{color:var(--text)}
+.trend-spark{width:100%;height:40px;display:block}
+.usual-band{fill:var(--text);opacity:.07}.spark-dot{fill:var(--text)}
+.sleep-band rect{fill:var(--text);opacity:.045}.chart .sleep-band text{fill:var(--muted);font-size:10px;letter-spacing:.05em}
+@media(max-width:900px){.trend-tiles{grid-template-columns:repeat(2,1fr)}}

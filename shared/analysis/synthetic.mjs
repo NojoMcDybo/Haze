@@ -8,7 +8,7 @@
 // jede Woche hat ein eigenes Bewegungsniveau, Wochen mit mehr Schritten haben niedrigere Glukose; Tage in unusual liegen ungewöhnlich hoch.
 import {MIN,HOUR,DAY,dayStart,addDays,dayKey} from './time.mjs';
 import {rng} from './stats.mjs';
-export function synthetic({days=90,end=Date.now(),tz='Europe/Berlin',seed=42,gapDays=[],longterm=false,shiftDay=Math.floor(days*.6),shiftDelta=-15,unusual=[]}={}){
+export function synthetic({days=90,end=Date.now(),tz='Europe/Berlin',seed=42,gapDays=[],longterm=false,shiftDay=Math.floor(days*.6),shiftDelta=-15,unusual=[],body=false}={}){
  const r=rng(seed),gauss=()=>{let s=0;for(let i=0;i<6;i++)s+=r();return (s-3)*1.41;};
  const r2=rng(seed+1000),g2=()=>{let s=0;for(let i=0;i<6;i++)s+=r2();return (s-3)*1.41;};
  const r3=rng(seed+2000),week=longterm?Array.from({length:Math.ceil(days/7)+1},()=>{let s=0;for(let i=0;i<6;i++)s+=r3();return (s-3)*1.41;}):null;
@@ -53,5 +53,16 @@ export function synthetic({days=90,end=Date.now(),tz='Europe/Berlin',seed=42,gap
   daily.push({date:p.key,steps:Math.round(6500+(p.act?p.act.minutes*120:0)+gauss()*1500+(week?2000*week[Math.floor(d/7)]:0)),intensityMinutes:p.act?p.act.minutes:Math.round(r()*10),stressAvg:Math.round(32+(prev?.restless?8:0)+gauss()*5),bbMax:Math.round(70+(prev?.restless?-15:0)+gauss()*8),bbMin:Math.round(15+gauss()*5),rhr:Math.round(54+gauss()),
    readiness:Math.round(Math.max(10,Math.min(100,72-(prev?.restless?18:0)+g2()*7))),acwr:Math.round((1+g2()*.15)*10)/10,respiration:Math.round(14+g2()*.6),spo2:Math.round(96+g2()*.6)});
  }
- return {glucose,treatments,activities,sleeps,daily,deviceEvents};
+ // Körperdaten für „Schlaf und Tag“ (nur mit body, eigener Zufallsstrom): Schlafphasen in Zyklen, Body Battery, Stress, Schritte, Puls.
+ const stages=[],series=[],hr=[];
+ if(body){const r4=rng(seed+3000);
+  for(const s of sleeps){let t=s.start,c=0;while(t<s.end){const deep=c<2?25+r4()*20:5+r4()*10,rem=10+c*6+r4()*8;
+   for(const [stage,m] of [['light',20+r4()*15],['deep',deep],['light',10+r4()*10],['rem',rem],...(r4()<.35?[['awake',3+r4()*6]]:[])]){const e=Math.min(s.end,t+m*MIN);if(e>t)stages.push({night:s.night,start:t,end:e,stage});t=e;if(t>=s.end)break;}c++;}}
+  const first=sleeps[0]?.start??glucose[0]?.time,last=glucose.at(-1)?.time??end;let bb=60;
+  for(let t=first,i=0;t<=last;t+=3*MIN,i++){const asleep=sleeps.some(s=>t>=s.start&&t<s.end),h=((t-dayStart(dayKey(t,tz),tz))/HOUR);
+   if(i%5===0){bb=Math.max(5,Math.min(100,bb+(asleep?1.1:-.45)+(r4()-.5)*.6));series.push({kind:'body_battery',time:t,value:Math.round(bb)});}
+   series.push({kind:'stress',time:t,value:Math.round(asleep?10+r4()*12:22+18*Math.sin(h/24*Math.PI)+r4()*20)});
+   if(i%5===0&&!asleep&&h>7&&h<23)series.push({kind:'steps',time:t,value:Math.round(r4()<.3?r4()*900:r4()*120)});
+   hr.push({time:t,bpm:Math.round(asleep?48+r4()*8:62+r4()*25)});}}
+ return {glucose,treatments,activities,sleeps,daily,deviceEvents,stages,series,hr};
 }
