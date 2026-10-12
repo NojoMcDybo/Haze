@@ -73,7 +73,8 @@ module.exports=class DataService{
  }
  // kind 'longterm': Wochen, Monate, Trends über bis zu 365 Tage (führende Tage ohne Daten schneidet die Engine ab).
  analysis({days=14,to,kind='period'}={}){
-  if(kind==='longterm')days=365;else if(![7,14,30,90,180].includes(days))throw Error('Ungültiger Zeitraum');
+  // kind 'forecast': Prognose-Experiment, lernt auf 28 Tagen und prüft auf den 7 Tagen danach.
+  if(kind==='longterm')days=365;else if(kind==='forecast')days=36;else if(![7,14,30,90,180].includes(days))throw Error('Ungültiger Zeitraum');
   const demo=this.config().source==='demo',end=to??Date.now(),from=end-days*DAY,key=`${kind}:${demo}:${days}:${Math.floor(end/(5*60000))}`;
   if(this.cache.has(key))return this.cache.get(key);
   const job=new Promise((resolve,reject)=>{

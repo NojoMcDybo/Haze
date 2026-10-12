@@ -1,6 +1,6 @@
 # Plan: Langzeit, Muster, Prognose-Experiment, KI-Erklärer
 
-Stand: 12. Oktober 2026 · Status: PR D gemergt (#23, 1.9.0); **PR E umgesetzt** (Branch `claude/muster`, 1.10.0); F–G offen
+Stand: 12. Oktober 2026 · Status: D gemergt (#23, 1.9.0), E gemergt (#26, 1.10.0); **PR F Teil 1 umgesetzt** (Branch `claude/prognose`, 1.11.0); F Teil 2 (TTM/Chronos) und G offen
 
 Nojos Wunsch: Veränderungen über Wochen und Monate erkennen und dort Zusammenhänge finden, wiederkehrende Muster lernen, eine Kurzzeitprognose als klar gekennzeichneten Test. Es gelten dieselben Regeln wie bisher: Alles läuft lokal, die Ergebnisse sind beschreibend, Haze gibt keine Therapiehinweise, und es werden keine Hypothesen über Insulin- oder KH-Mengen geprüft.
 
@@ -68,7 +68,31 @@ Umgesetzt in `shared/analysis/patterns.mjs` und `src/Patterns.tsx`, als eigener 
 - **Persönlicher Normalbereich:** gleitend über 28 Tage; ungewöhnliche Tage und Nächte werden markiert (Isolation Forest bzw. Median und MAD).
 - **Lernen durch Bestätigung:** Ein Muster wird in älteren Daten gefunden und muss sich in neueren bestätigen. Es wird mit „zuerst gesehen / zuletzt bestätigt / verschwunden“ in `haze.db` gespeichert.
 
-## PR F – Prognose-Experiment (geplant, vorher Test)
+## PR F – Prognose-Experiment
+
+### Teil 1 (1.11.0, umgesetzt)
+
+Umgesetzt in `shared/analysis/forecast.mjs` und `src/Forecast.tsx`:
+- **Modelle:**
+  - einfache Fortschreibung;
+  - gedämpfter Trend (Steigung der letzten 15 min, Dämpfung 0,85 je Schritt);
+  - **AR(6) auf 5-Minuten-Differenzen**, gelernt per Ridge-Kleinstquadrate auf 28 Tagen und mehrstufig rekursiv.
+- **Rückwärtsprüfung:** Das AR-Modell lernt nur auf den 28 Tagen **vor** den letzten 7 Tagen. Geprüft wird alle 15 Minuten auf 15, 30, 45 und 60 Minuten (RMSE, MAE, Bias, 10/90-Quantile der Fehler).
+  - Gezeigt wird das Modell mit dem kleinsten Fehler bei 30 Minuten, aber nur, wenn es die Fortschreibung um mindestens 5 % schlägt. Sonst wird ehrlich die Fortschreibung gezeigt.
+  - Das 80-%-Band stammt aus den Fehlerquantilen. Ein Test prüft, dass es in der Folgewoche 70–90 % der echten Werte enthält.
+- **Ergebnisse:**
+  - Künstliche Daten: Fortschreibung RMSE 19 mg/dL bei 30 min, AR 17 (11 % besser).
+  - Echte Daten: noch zu wenige zusammenhängende Wochen, deshalb gewinnt die Fortschreibung.
+- **Anzeige:**
+  - Standardmäßig aus. Eingeschaltet wird nur über die Karte „Kurzzeit-Prognose“ auf der Auswertung, mit Bestätigung „nicht belastbar“.
+  - Danach erscheint sie im Verlauf auf „Jetzt“ als blasse, gestrichelte Linie mit Band hinter einer „jetzt“-Linie, beschriftet „Experiment · nicht belastbar“; beim Zeigen gibt es einen eigenen Text.
+  - Nie im Widget, in der Notch oder in Alarmen.
+
+### Teil 2 (offen): Zeitreihen-Grundmodelle
+
+Bisher gibt es keine fertigen ONNX-Exporte (Recherche 12. Oktober). Nötig ist ein einmaliger Export mit Python und PyTorch auf dem Entwicklungsrechner, danach Ausführung mit onnxruntime-web im Analyse-Thread. Die Modelle müssen dieselbe Rückwärtsprüfung bestehen.
+
+### Ursprünglicher Plan F
 
 - Vorher prüfen: Lassen sich TTM r2 und Chronos-Bolt nach ONNX exportieren und laufen sie in onnxruntime-web?
 - Die Vorhersage reicht 30 bis 60 Minuten nur aus CGM, Tageszeit und persönlichem Profil. Tandem-Daten kommen mit Stunden Verzögerung, deshalb kennt die Prognose weder aktuelles Insulin noch aktuelle KH.

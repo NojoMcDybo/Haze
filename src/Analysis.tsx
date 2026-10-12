@@ -4,6 +4,7 @@ import './analysis.css';
 import {Longterm} from './Longterm';
 import {Sources} from './Sources';
 import {More} from './More';
+import {ForecastCard} from './Forecast';
 // Auswertung aus haze.db (Analyse-Engine shared/analysis). Beschreibend, keine Therapiehinweise.
 const pct=(v:any,d=0)=>v==null?'—':v.toLocaleString('de-DE',{maximumFractionDigits:d,minimumFractionDigits:d});
 const dateKey=(k:string)=>{const [y,m,d]=k.split('-');return `${d}.${m}.`;};
@@ -16,7 +17,7 @@ class Guard extends React.Component<{children:React.ReactNode},{error:string}>{
  render(){return this.state.error?<div className="notice n-liquid panel" role="status">Dieser Teil der Auswertung konnte nicht angezeigt werden ({this.state.error}).</div>:this.props.children;}
 }
 // active: Seite sichtbar. Geladen wird erst beim ersten Öffnen der Seite, danach bei neuen Daten.
-export function Analysis({state,load,loadLong,unit,act,openSettings,active=true}:any){
+export function Analysis({state,load,loadLong,loadForecast,unit,act,openSettings,active=true}:any){
  const [days,setDays]=useState(14),[res,setRes]=useState<any>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const lastRun=state.data?.lastRun,source=state.config.source;
  const opened=useRef(false);if(active)opened.current=true;
@@ -51,6 +52,7 @@ export function Analysis({state,load,loadLong,unit,act,openSettings,active=true}
    <More label="Wie belastbar ist das?"><ul className="caveats">{res.caveats.map((c:string)=><li key={c}>{c}</li>)}</ul></More>
   </div></Guard>}
   {loadLong&&<Guard><Longterm load={loadLong} unit={unit} active={opened.current} lastRun={lastRun} source={source}/></Guard>}
+  {loadForecast&&act&&<Guard><ForecastCard state={state} act={act} load={loadForecast} active={opened.current}/></Guard>}
  </section>;
 }
 function Quality({res}:any){
