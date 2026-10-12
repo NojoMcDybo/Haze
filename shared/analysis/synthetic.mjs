@@ -5,10 +5,10 @@
 // dem Katheter-Alter; Sportmodus halbiert ungefähr den Abfall; Schlafmodus jede Nacht; Alarme in Nächten mit Tief;
 // unruhige Nächte erhöhen unruhige Momente und Schlafstress; Trainingsbereitschaft sinkt nach unruhigen Nächten.
 // Langzeit (nur mit longterm, dritter Zufallsstrom): ab Tag shiftDay liegt die Glukose um shiftDelta anders (Wendepunkt);
-// jede Woche hat ein eigenes Bewegungsniveau, Wochen mit mehr Schritten haben niedrigere Glukose.
+// jede Woche hat ein eigenes Bewegungsniveau, Wochen mit mehr Schritten haben niedrigere Glukose; Tage in unusual liegen ungewöhnlich hoch.
 import {MIN,HOUR,DAY,dayStart,addDays,dayKey} from './time.mjs';
 import {rng} from './stats.mjs';
-export function synthetic({days=90,end=Date.now(),tz='Europe/Berlin',seed=42,gapDays=[],longterm=false,shiftDay=Math.floor(days*.6),shiftDelta=-15}={}){
+export function synthetic({days=90,end=Date.now(),tz='Europe/Berlin',seed=42,gapDays=[],longterm=false,shiftDay=Math.floor(days*.6),shiftDelta=-15,unusual=[]}={}){
  const r=rng(seed),gauss=()=>{let s=0;for(let i=0;i<6;i++)s+=r();return (s-3)*1.41;};
  const r2=rng(seed+1000),g2=()=>{let s=0;for(let i=0;i<6;i++)s+=r2();return (s-3)*1.41;};
  const r3=rng(seed+2000),week=longterm?Array.from({length:Math.ceil(days/7)+1},()=>{let s=0;for(let i=0;i<6;i++)s+=r3();return (s-3)*1.41;}):null;
@@ -37,7 +37,7 @@ export function synthetic({days=90,end=Date.now(),tz='Europe/Berlin',seed=42,gap
    if(prev?.lateLow&&h>=2&&h<4.5)v-=70*Math.sin((h-2)/2.5*Math.PI);
    if(prev?.restless&&h<6)v+=35*Math.sin(h*2.1);
    if(p.compression&&h>=3&&h<3.5)v-=60*Math.sin((h-3)/.5*Math.PI);
-   if(week)v+=-6*week[Math.floor(d/7)]+(d>=shiftDay?shiftDelta:0);
+   if(week)v+=-6*week[Math.floor(d/7)]+(d>=shiftDay?shiftDelta:0)+(unusual.includes(d)?75:0);// ungewöhnliche Tage (z. B. Infekt)
    noise=.8*noise+gauss()*3;v=Math.max(40,Math.min(400,v+noise));
    glucose.push({time:t,value:Math.round(v),source:'share'});
   }
