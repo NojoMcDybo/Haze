@@ -262,3 +262,22 @@ Plan: `docs/PLAN-TANDEM-SICHER.md`.
 
 ### Offen
 - Muster mit echten Daten. Das Gedächtnis füllt sich erst über mehrere Auswertungen.
+
+## Branch claude/prognose – 12. Oktober 2026: Prognose-Experiment Teil 1 (1.11.0)
+
+### Bestanden
+- `npm test`: 105 grün; neu `tests/forecast.test.mjs` (5 Tests):
+  - Raster und Lücken.
+  - AR lernt einen bekannten Koeffizienten (0,8) zurück.
+  - Das gelernte Modell schlägt die Fortschreibung bei Dynamik; bei einem reinen Zufallsweg bleibt es bei der Fortschreibung.
+  - Die Prognose hat 12 Punkte mit wachsendem Band; bei Werten älter als 12 min oder zu wenig Daten gibt es keine Prognose.
+  - **Das Band ist ehrlich:** In der Woche nach der Prüfung, die das Modell nicht kannte, liegen 70–90 % der echten Werte darin.
+- Kopie der echten Datenbank: Die Prüfung läuft (262 Startpunkte). Das AR-Modell hat noch zu wenige zusammenhängende Wochen, deshalb wird die Fortschreibung gezeigt.
+- `npx tsc --noEmit`, Build.
+- **Vorschau:**
+  - Karte mit Urteil, Fehlertabelle und Bestätigungsschritt.
+  - Nach dem Einschalten erscheint im Verlauf die Linie mit Band hinter der „jetzt“-Linie, beschriftet „Experiment · nicht belastbar“.
+
+### Offen
+- Teil 2: TTM bzw. Chronos-Bolt als ONNX (Export mit Python und PyTorch nötig).
+- In der App: Prognose mit echten Live-Werten.
