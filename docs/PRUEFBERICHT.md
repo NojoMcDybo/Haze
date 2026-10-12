@@ -331,3 +331,19 @@ Plan: `docs/PLAN-TANDEM-SICHER.md`.
 
 ### Offen
 - In der installierten App mit echten Daten ansehen.
+
+## Branch claude/koerper-ansicht – 12. Oktober 2026: Schlaf und Tag mit Farbe, Vergleich und Durchschnitt (1.15.0)
+
+### Bestanden
+- **Farben** mit dem dataviz-Validator geprüft:
+  - Schlafphasen in der Reihenfolge Wach, REM, Leicht, Tief: hell und dunkel ALLE PASS. Die erste Wahl Tief = Violett scheiterte dunkel an Blau/Violett (CVD ΔE 1,9), deshalb Tief = Türkis.
+  - Body Battery gegen Stress: alle Paare PASS. Grün für Schritte scheiterte gegen Orange (CVD ΔE 3,2), deshalb sind die Schritte neutral.
+  - Helle Stufen unter 3:1 (Gelb, Magenta, Türkis) sind durch Legende und Beschriftung abgedeckt.
+- `npm test`: 113 grün. Neu ist der Durchschnitt: Anteile ergeben 100 %, der Nachtbeginn ist leicht/tief, die Quartile sind geordnet, nachts gibt es keine Schritte, und „üblich“ schließt den Tag selbst aus.
+- **Kopie der echten DB:** Durchschnitt über 14 Nächte in 0,1 s (Ø 8,9 h, Tief 58 min, REM 106 min); 30 Tage mit 29 Nächten über den Analyse-Thread.
+- **Vorschau** dunkel und hell: Nacht (farbige Phasen, Tief rot markiert, übliches Band, Balken „diese Nacht gegen üblich“), Tag (Streifen mit üblichen Bändern), Ø 14 Tage, Kacheln mit Vergleichsbalken.
+  - **Gefunden und behoben:** Die Tagesgrafik war zu knapp bemessen, der Schritte-Streifen ragte hinaus.
+  - **Gefunden und behoben:** Mit „Bewegung reduzieren“ verschwanden alle sich zeichnenden Linien (seit 1.13), weil der Startzustand „unsichtbar“ stehen blieb. Jetzt ist die Ruhelage sichtbar, nur die Animation beginnt unsichtbar.
+
+### Offen
+- In der installierten App mit echten Daten ansehen.

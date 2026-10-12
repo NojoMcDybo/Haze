@@ -6,10 +6,10 @@ import {longterm} from '../shared/analysis/longterm.mjs';
 import {synthetic} from '../shared/analysis/synthetic.mjs';
 import {remember} from '../shared/analysis/patterns.mjs';
 import {evaluate,recentWindow} from '../shared/analysis/forecast.mjs';
-import {bodyDay,bodyDays,bodyTrends} from '../shared/analysis/body.mjs';
-import {dayStart} from '../shared/analysis/time.mjs';
+import {bodyDay,bodyDays,bodyTrends,bodyAverage} from '../shared/analysis/body.mjs';
+import {dayStart,addDays} from '../shared/analysis/time.mjs';
 import {openStore} from '../shared/store.mjs';
-const {file,from,to,tz,demo,kind,recent,day}=workerData;
+const {file,from,to,tz,demo,kind,recent,day,avg}=workerData;
 // TTM (desktop/ttm.mjs) nur laden, wenn es gebraucht wird; schlägt das fehl, läuft die Prognose ohne es weiter.
 async function ttm(){try{const {loadTtm}=await import('./ttm.mjs');return {model:await loadTtm()};}catch(e){return {error:e.message};}}
 try{
@@ -17,7 +17,7 @@ try{
  if(demo)data=synthetic({days:kind==='longterm'?240:kind==='forecast'||kind==='forecast-live'?40:Math.ceil((to-from)/86400000)+2,end:to,tz,longterm:kind==='longterm',unusual:[228,200],body:kind==='body'});
  else{const s=openStore(file);try{data=s.load(from,to);
   // Schlaf und Tag: schwere Verläufe (Phasen, Stress, Body Battery, Puls) nur rund um den gewählten Tag laden.
-  if(kind==='body'){const days=bodyDays(data,tz),d=days.includes(day)?day:days[0];if(d){const t=dayStart(d,tz);Object.assign(data,s.body(t-86400000,t+2*86400000));}}}finally{s.close();}}
+  if(kind==='body'){const days=bodyDays(data,tz),d=days.includes(day)?day:days[0];if(d){const t=dayStart(d,tz);Object.assign(data,s.body(t-((avg||14)+1)*86400000,t+2*86400000));}}}finally{s.close();}}
  let result;
  if(kind==='forecast'){const t=await ttm();result=await evaluate([...data.glucose].sort((a,b)=>a.time-b.time),{to,extra:t.model||null});if(t.error)result.external={key:'ttm',label:'IBM TTM',status:`nicht verfügbar: ${t.error}`};}
  // Live für TTM: frische Werte aus Nightscout (recent) plus Historie aus haze.db, 30 h am Stück.
@@ -25,7 +25,11 @@ try{
   result=w?{time:w.time,values:await t.model.path(w.values)}:null;}
 
  // Schlaf und Tag: gewählter Tag (sonst der neueste mit Garmin-Daten), Liste der Tage, 4-Wochen-Kacheln.
- else if(kind==='body'){const days=bodyDays(data,tz),d=days.includes(day)?day:days[0];result=d?{days,...bodyDay(data,{day:d,tz,now:to}),trends:bodyTrends(data,{day:d,tz})}:{days:[]};}
+ // avg: Durchschnitt der letzten avg Tage bis zum gewählten; sonst der Tag mit „üblich“ = Durchschnitt der 14 Tage davor.
+ else if(kind==='body'){const days=bodyDays(data,tz),d=days.includes(day)?day:days[0];
+  if(!d)result={days:[]};
+  else if(avg)result={days,day:d,avg,average:bodyAverage(data,{days:days.filter(k=>k<=d&&k>addDays(d,-avg)),tz}),trends:bodyTrends(data,{day:d,tz})};
+  else result={days,...bodyDay(data,{day:d,tz,now:to}),usual:bodyAverage(data,{days:days.filter(k=>k<d&&k>=addDays(d,-14)),tz}),trends:bodyTrends(data,{day:d,tz})};}
  else result=kind==='longterm'?longterm(data,{from,to,tz}):analyze(data,{from,to,tz});
  // Gedächtnis der Muster: seit wann eine Regel gilt und welche verschwunden sind (meta 'pattern-memory'). Fehler hier stören nie.
  if(kind==='longterm'&&!demo&&result.patterns)try{const s=openStore(file);try{

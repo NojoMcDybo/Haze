@@ -148,29 +148,54 @@ body.paging,body.paging *{user-select:none!important;cursor:grabbing!important}
 .forecast-card .verdict{font-size:13px;line-height:1.55;margin:10px 0}
 .forecast-table tr.best td{font-weight:650}
 .forecast-actions{margin-top:12px;flex-wrap:wrap;justify-content:flex-start;gap:10px}
-/* Schlaf und Tag (Garmin): unbunt wie in Nebel – Tinte für Verläufe, Farbe nur an den Schwellen */
+/* Schlaf und Tag (Garmin). Farben mit dem dataviz-Validator geprüft (Farbsehschwäche, Unterscheidbarkeit, Kontrast):
+   Schlafphasen in der Reihenfolge Wach, REM, Leicht, Tief; Body Battery und Stress paarweise. Dunkel hat eigene Stufen.
+   Glukose bleibt Tinte und färbt sich nur unter 70 bzw. über 180 (Bereichsfarben). Schritte neutral. */
+:root{--st-awake:#c98500;--st-rem:#d55181;--st-light:#3987e5;--st-deep:#199e70;--s-bb:#9085e9;--s-stress:#d95926}
+:root[data-theme=light]{--st-awake:#eda100;--st-rem:#e87ba4;--st-light:#2a78d6;--st-deep:#1baf7a;--s-bb:#4a3aa7;--s-stress:#eb6834}
+.st-awake{fill:var(--st-awake);background:var(--st-awake)}.st-rem{fill:var(--st-rem);background:var(--st-rem)}
+.st-light{fill:var(--st-light);background:var(--st-light)}.st-deep{fill:var(--st-deep);background:var(--st-deep)}
+.s-bb{fill:var(--s-bb);background:var(--s-bb)}.s-stress{fill:var(--s-stress);background:var(--s-stress)}.s-steps{fill:var(--muted);background:var(--muted)}
 .body-view{margin-top:22px;display:flex;flex-direction:column;gap:14px}
+.body-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .day-nav{display:flex;gap:8px}.day-nav .icon-button{font-size:20px;line-height:1}
 .body-grid{align-items:start}
-.body-chart svg{height:auto;aspect-ratio:auto}
-.night-card .score{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;padding:4px 12px;border-radius:12px;background:var(--pill)}
-.body-glucose{fill:none;stroke:var(--text);stroke-width:1.8;stroke-linejoin:round}
-.body-dot{fill:var(--text)}
-.sleep-span{fill:var(--text);opacity:.035}
+.night-card .score{display:flex;flex-direction:column;align-items:center;font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;padding:4px 12px;border-radius:12px;background:var(--pill);line-height:1.1}
+.night-card .score small,.vs{font-size:10.5px;font-weight:500;color:var(--muted)}
+.glucose-line path{fill:none;stroke-linejoin:round;stroke-linecap:round}
+.g-ink{stroke:var(--text);stroke-width:1.8}.g-low{stroke:var(--low);stroke-width:3}.g-high{stroke:var(--high);stroke-width:3}
+.body-dot{fill:var(--text);stroke:var(--card);stroke-width:2}.body-dot.low{fill:var(--low)}.body-dot.high{fill:var(--high)}
+.usual-area{fill:var(--text);opacity:.08}.usual-median{fill:none;stroke:var(--text);stroke-width:1.2;stroke-dasharray:3 4;opacity:.55}
+.avg-area{fill:var(--text);opacity:.12}.avg-median{fill:none;stroke:var(--text);stroke-width:2;stroke-linejoin:round}
 .lane{stroke:var(--border);stroke-width:1}
-.hypnogram{fill:none;stroke:var(--text);stroke-width:2.2;stroke-linejoin:round;opacity:.85}
-.stress-bar{fill:var(--muted);opacity:.28}
-.bb-line{fill:none;stroke:var(--text);stroke-width:1.8;stroke-linejoin:round}
-.steps-bar{fill:var(--muted);opacity:.45}
+.stack{stroke:var(--card);stroke-width:1}
+.bb-line{fill:none;stroke:var(--s-bb);stroke-width:2.2;stroke-linejoin:round}.bb-band{fill:var(--s-bb);opacity:.16}
+.stress-bar{fill:var(--s-stress);opacity:.75}.stress-band{fill:var(--s-stress);opacity:.22}
+.steps-bar{fill:var(--muted);opacity:.55}.usual-tick{stroke:var(--text);stroke-width:2;stroke-linecap:round;opacity:.7}
 .agp text.strip-label{fill:var(--muted);font-size:10px;letter-spacing:.04em}
+.viz-legend{list-style:none;display:flex;flex-wrap:wrap;gap:6px 16px;padding:0;margin:8px 0 2px;font-size:11px;color:var(--muted)}
+.viz-legend li{display:flex;align-items:center;gap:6px}.viz-legend i{width:10px;height:10px;border-radius:3px}
+.viz-legend .usual-chip{background:color-mix(in srgb,var(--text) 12%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--text) 35%,transparent)}
+.viz-legend .avg-chip{background:color-mix(in srgb,var(--text) 18%,transparent);box-shadow:inset 0 -2px 0 var(--text)}
+.viz-legend .g-chip{background:var(--text);box-shadow:4px 0 0 var(--high),-4px 0 0 var(--low);width:8px}
+.composition{display:flex;flex-direction:column;gap:6px;margin:10px 0 4px}
+.comp-row{display:grid;grid-template-columns:110px 1fr;align-items:center;gap:10px;font-size:11px;color:var(--muted)}
+.comp-bar{display:flex;gap:2px;height:20px;border-radius:6px;overflow:hidden;transform-origin:left center;animation:grow-x .9s var(--n-spring) backwards .1s}
+.comp-bar i{display:flex;align-items:center;justify-content:center;min-width:3px;transition:flex-grow .7s var(--n-spring)}
+.comp-bar b{font-size:10px;font-weight:650;color:#fff;text-shadow:0 1px 2px #0006}
+.v-low{color:var(--low);font-weight:650}.v-bb{color:var(--s-bb);font-weight:650}.v-stress{color:var(--s-stress);font-weight:650}
 .body-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px 16px;margin:10px 0 4px;font-size:12px}
 .body-stats div{display:flex;flex-direction:column;gap:2px}.body-stats dt{font-size:10px;color:var(--muted);letter-spacing:.04em}.body-stats dd{margin:0;font-variant-numeric:tabular-nums}
 .trend-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-.trend-tile{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border-radius:14px;background:var(--pill)}
+.trend-tile{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:14px;background:var(--pill);box-shadow:inset 0 0 0 1px transparent;transition:box-shadow .3s}
+.trend-tile.höher,.trend-tile.niedriger{box-shadow:inset 0 0 0 1.5px var(--text)}
 .trend-tile .eyebrow{font-size:9px}.trend-tile b{font-size:20px;font-weight:650;font-variant-numeric:tabular-nums}.trend-tile b small{font-size:11px;color:var(--muted);font-weight:500}
-.trend-tile small{font-size:10px;color:var(--muted);line-height:1.4}
-.trend-tile.höher small,.trend-tile.niedriger small{color:var(--text)}
-.trend-spark{width:100%;height:40px;display:block}
-.usual-band{fill:var(--text);opacity:.07}.spark-dot{fill:var(--text)}
-.sleep-band rect{fill:var(--text);opacity:.045}.chart .sleep-band text{fill:var(--muted);font-size:10px;letter-spacing:.05em}
-@media(max-width:900px){.trend-tiles{grid-template-columns:repeat(2,1fr)}}
+.trend-tile .dir{font-style:normal;font-size:16px}
+.trend-tile small{font-size:10px;color:var(--muted);line-height:1.4}.trend-tile.höher small,.trend-tile.niedriger small{color:var(--text)}
+.bullet{position:relative;height:8px;border-radius:4px;background:color-mix(in srgb,var(--text) 8%,transparent)}
+.bullet-usual{position:absolute;top:0;bottom:0;border-radius:4px;background:color-mix(in srgb,var(--text) 26%,transparent)}
+.bullet-mark{position:absolute;top:-4px;width:4px;height:16px;margin-left:-2px;border-radius:2px;background:var(--text);box-shadow:0 0 0 2px var(--pill);transition:left .6s var(--n-spring)}
+.trend-spark{width:100%;height:36px;display:block}
+.usual-band{fill:var(--text);opacity:.07}
+.sleep-band rect{fill:var(--st-light);opacity:.07}.chart .sleep-band text{fill:var(--muted);font-size:10px;letter-spacing:.05em}
+@media(max-width:900px){.trend-tiles{grid-template-columns:repeat(2,1fr)}.comp-row{grid-template-columns:86px 1fr}}

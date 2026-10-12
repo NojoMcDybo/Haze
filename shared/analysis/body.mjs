@@ -61,3 +61,40 @@ export function bodyTrends({sleeps=[],daily=[]},{day,tz=defaultZone(),days=28}){
   return {key:t.key,label:t.label,unit:t.unit||'',d:t.d||0,better:t.better,value:round(value,t.d||0),usual,status,series};
  });
 }
+// ── Durchschnitt über mehrere Tage ───────────────────────────────
+// Nächte werden ab dem Einschlafen übereinandergelegt (10-Minuten-Fenster, bis 10 h): Anteil je Schlafphase und Glukose
+// (Quartile). Tage nach Uhrzeit (15-Minuten-Fenster): Glukose, Body Battery, Stress (Quartile), Schritte (Mittel je Stunde).
+// Dient als „Durchschnitt“-Ansicht und als „üblich“-Band hinter einem einzelnen Tag.
+export const STAGE_KEYS=['awake','rem','light','deep'];
+const qs=v=>v.length?{p25:round(quantile(v,.25)),p50:round(quantile(v,.5)),p75:round(quantile(v,.75)),n:v.length}:null;
+const avg=v=>{const x=v.filter(Number.isFinite);return x.length?x.reduce((a,b)=>a+b,0)/x.length:null;};
+/** @param {any} data @param {{days:string[],tz?:string}} options */
+export function bodyAverage({glucose=[],sleeps=[],daily=[],stages=[],series=[]},{days,tz=defaultZone()}){
+ const set=new Set(days),g=merge(glucose).map(e=>({time:e.time,value:e.value})),nights=sleeps.filter(s=>set.has(nightOf(s,tz)));
+ const NB=60,NS=10*MIN,share=Array.from({length:NB},()=>({awake:0,rem:0,light:0,deep:0,n:0})),gn=Array.from({length:NB},()=>[]);
+ for(const s of nights){
+  const st=stages.filter(x=>x.end>s.start&&x.start<s.end);
+  for(let i=0;i<NB;i++){const t=s.start+(i+.5)*NS;if(t>=s.end)break;const x=st.find(z=>t>=z.start&&t<z.end);if(x&&x.stage in share[i]){share[i][x.stage]++;share[i].n++;}}
+  for(const e of within(g,s.start,Math.min(s.end,s.start+NB*NS)))gn[Math.floor((e.time-s.start)/NS)].push(e.value);
+ }
+ const minN=Math.max(2,Math.ceil(nights.length*.3));
+ const stageShare=share.map((b,i)=>({offset:i*10,n:b.n,...Object.fromEntries(STAGE_KEYS.map(k=>[k,b.n?round(b[k]/b.n,3):0]))})).filter(b=>b.n>=minN);
+ const night=nights.length?{n:nights.length,stageShare,glucose:gn.map((v,i)=>({offset:i*10,...qs(v)})).filter(b=>b.n>=Math.max(3,minN)),
+  metrics:Object.fromEntries([['score',s=>s.score],['hours',s=>(s.end-s.start)/HOUR],['deep',s=>s.deep],['light',s=>s.light],['rem',s=>s.rem],['awake',s=>s.awake],['hrv',s=>s.hrv],['rhr',s=>s.rhr],['spo2',s=>s.spo2],['respiration',s=>s.respiration],['bbChange',s=>s.bbChange]]
+   .map(([k,f])=>[k,round(avg(nights.map(f)),k==='hours'?1:0)]))}:null;
+ // Tag nach Uhrzeit: Minute des Tages über die Zeitzone (Sommerzeit-fest), nur Werte aus den gewählten Tagen.
+ const DB=96,bins=()=>Array.from({length:DB},()=>[]),gd=bins(),bb=bins(),sx=bins(),stepDay=new Map(),hourKey=new Map();
+ const keyOf=t=>{const h=Math.floor(t/HOUR);let k=hourKey.get(h);if(k===undefined){k=dayKey(t,tz);hourKey.set(h,k);}return k;};
+ const slot=t=>{const k=keyOf(t);if(!set.has(k))return -1;return Math.min(DB-1,Math.floor((t-dayStart(k,tz))/(15*MIN)));};
+ for(const e of g){const i=slot(e.time);if(i>=0)gd[i].push(e.value);}
+ for(const x of series){const i=slot(x.time);if(i<0)continue;
+  if(x.kind==='body_battery')bb[i].push(x.value);else if(x.kind==='stress')sx[i].push(x.value);
+  else if(x.kind==='steps'){const k=keyOf(x.time),h=Math.floor(i/4);if(!stepDay.has(k))stepDay.set(k,new Array(24).fill(0));stepDay.get(k)[h]+=x.value;}}
+ const q15=a=>a.map((v,i)=>({minute:i*15,...qs(v)})).filter(b=>b.n>=3);
+ const stepDays=[...stepDay.values()];
+ const day={n:days.length,glucose:q15(gd),bodyBattery:q15(bb),stress:q15(sx),
+  steps:stepDays.length?Array.from({length:24},(_,h)=>({hour:h,mean:round(avg(stepDays.map(d=>d[h])))})):[],
+  metrics:Object.fromEntries([['steps',d=>d.steps],['stressAvg',d=>d.stressAvg],['bbMax',d=>d.bbMax],['bbMin',d=>d.bbMin],['readiness',d=>d.readiness]].map(([k,f])=>[k,round(avg(daily.filter(d=>set.has(d.date)).map(f)))]))};
+ const gs=summary(g.filter(e=>set.has(keyOf(e.time))),-Infinity,Infinity);
+ return {days:days.length,first:days.at(-1),last:days[0],night,day,glucoseSummary:{tir:round(gs.tir,1),mean:round(gs.mean)}};
+}
