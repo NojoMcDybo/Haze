@@ -41,6 +41,23 @@ Bewegung zeigt, was sich geändert hat, und hört dann auf (`src/motion.ts`, `sr
 - **Unbunt wie in Nebel:** Verläufe in Tinte, Stress und Schritte als blasse Balken. Farbe tragen nur die Schwellen 70 und 180.
 - **Tage blättern** statt Zeitraum wählen: Eine Nacht und ein Tag sind die natürliche Einheit.
 
+## Schlaf und Tag, Ausbau (1.15)
+
+Nojo wollte die Werte deutlicher hervorgehoben, Vergleiche im selben Element und beides: Durchschnitt und einzelner Tag.
+- **Farbe gezielt eingesetzt** (mit dem dataviz-Validator geprüft: Farbsehschwäche, Unterscheidbarkeit, Kontrast; hell und dunkel mit eigenen Stufen):
+  - Schlafphasen: Wach Gelb, REM Magenta, Leicht Blau, Tief Türkis, in dieser Nachbarschaft geprüft.
+  - Body Battery Violett, Stress Orange. Schritte bleiben neutral.
+  - Glukose bleibt Tinte und färbt sich unter 70 rot und über 180 gelb, dicker gezeichnet. Abweichungen stechen hervor, ein guter Verlauf bleibt ruhig.
+- **Vergleich im selben Element:**
+  - Hinter jeder Kurve liegt der übliche Bereich der 14 Tage davor als Band, mit gestrichelter Medianlinie; bei Schritten ist das Übliche je Stunde als Strich markiert.
+  - Phasenanteile als 100-%-Balken: „Diese Nacht“ gegen „Üblich“.
+  - Kennzahlen mit „(Ø …)“.
+  - 4-Wochen-Kacheln mit Balken „heute gegen üblichen Bereich“; außerhalb des Bereichs gibt es Rahmen, Pfeil und den Abstand zum Median.
+- **Umschalter Tag / Ø 7 / Ø 14 / Ø 30 Tage:**
+  - Im Durchschnitt werden Nächte ab dem Einschlafen übereinandergelegt (Phasenanteile als gestapelte Fläche, Glukose als Median mit mittlerer Hälfte).
+  - Tage werden nach Uhrzeit zusammengefasst, Schritte als Mittel je Stunde.
+- **Legende** unter jedem Diagramm, damit Farbe nie allein trägt; Prozentwerte direkt in den Balken.
+
 ## Nächste Schritte (vorgeschlagen)
 
 - **Kennzahlen als eine Karte mit zwei Spalten** statt fünf Kacheln, wie die `statlist` in Nebel. Das ist ruhiger und auf dem Handy kürzer.

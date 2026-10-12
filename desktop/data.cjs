@@ -72,16 +72,17 @@ module.exports=class DataService{
   return {glucose:r.glucose.length,treatments:r.treatments.length,events:r.deviceEvents.length,from:r.from,to:r.to,skipped:r.skipped};
  }
  // kind 'longterm': Wochen, Monate, Trends über bis zu 365 Tage (führende Tage ohne Daten schneidet die Engine ab).
- analysis({days=14,to,kind='period',recent,day}={}){
+ analysis({days=14,to,kind='period',recent,day,avg}={}){
   // kind 'forecast': Prognose-Experiment, lernt auf 28 Tagen und prüft auf den 7 Tagen danach.
   // kind 'forecast-live': TTM-Pfad ab dem letzten Messwert; recent = aktuelle Nightscout-Werte (nur in den Thread, nicht gespeichert).
   // kind 'body': Schlaf und Tag für einen Tag (YYYY-MM-DD, sonst der neueste); Tageswerte 200 Tage, Verläufe nur um den Tag.
   if(kind==='body'&&day!=null&&!/^\d{4}-\d\d-\d\d$/.test(day))throw Error('Ungültiger Tag');
+  if(avg!=null&&![7,14,30].includes(avg))throw Error('Ungültiger Durchschnitt');
   if(kind==='longterm')days=365;else if(kind==='forecast')days=36;else if(kind==='forecast-live')days=2;else if(kind==='body')days=200;else if(![7,14,30,90,180].includes(days))throw Error('Ungültiger Zeitraum');
-  const demo=this.config().source==='demo',end=to??Date.now(),from=end-days*DAY,key=`${kind}:${demo}:${days}:${day||''}:${kind==='forecast-live'?recent?.at(-1)?.time:Math.floor(end/(5*60000))}`;
+  const demo=this.config().source==='demo',end=to??Date.now(),from=end-days*DAY,key=`${kind}:${demo}:${days}:${day||''}:${avg||''}:${kind==='forecast-live'?recent?.at(-1)?.time:Math.floor(end/(5*60000))}`;
   if(this.cache.has(key))return this.cache.get(key);
   const job=new Promise((resolve,reject)=>{
-   const w=new Worker(path.join(__dirname,'analysis-worker.mjs'),{workerData:{file:this.file,from,to:end,tz:this.tz(),demo,kind,day,recent:kind==='forecast-live'?(recent||[]).map(e=>({time:e.time,value:e.value})):undefined}});
+   const w=new Worker(path.join(__dirname,'analysis-worker.mjs'),{workerData:{file:this.file,from,to:end,tz:this.tz(),demo,kind,day,avg,recent:kind==='forecast-live'?(recent||[]).map(e=>({time:e.time,value:e.value})):undefined}});
    const t=setTimeout(()=>{w.terminate();reject(Error('Analyse dauert zu lange.'));},120000);
    w.once('message',m=>{clearTimeout(t);w.terminate();m.ok?resolve(m.result):reject(Error(m.error));});
    w.once('error',e=>{clearTimeout(t);reject(e);});

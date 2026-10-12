@@ -25,8 +25,10 @@
 @keyframes fade-in{from{opacity:0}}
 
 /* Linien zeichnen sich beim ersten Erscheinen (pathLength=1). */
-.draw{stroke-dasharray:1;stroke-dashoffset:1;animation:draw 1.2s var(--n-ease) forwards .15s}
-@keyframes draw{to{stroke-dashoffset:0}}
+/* Ruhezustand sichtbar; nur die Animation startet unsichtbar (backwards). So bleibt die Linie auch ohne Animation
+   („Bewegung reduzieren“, verdecktes Fenster) sichtbar. */
+.draw{stroke-dasharray:1;animation:draw 1.2s var(--n-ease) backwards .15s}
+@keyframes draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
 .agp-outer,.agp-inner{animation:fade-in 1s var(--n-ease) backwards .1s}
 
 /* Balken wachsen von links. */
