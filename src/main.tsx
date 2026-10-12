@@ -177,7 +177,10 @@ function App(){const garmin=useGarminConnection();const [page,setPage]=useState(
  useEffect(()=>{if(!state)return;const theme=state.config.theme==='system'?(state.systemDark?'dark':'light'):state.config.theme;document.documentElement.dataset.theme=theme;document.documentElement.classList.toggle('overlay-document',overlay||taskbar);document.body.classList.toggle('overlay-body',overlay||taskbar);document.body.classList.toggle('native-dashboard',desktop&&!overlay&&!taskbar);},[state?.config.theme,state?.systemDark]);
  useEffect(()=>{if(toast){const id=setTimeout(()=>setToast(''),5000);return()=>clearTimeout(id);}},[toast]);
  const fc=useForecastModel(!!state?.config.forecastExperiment&&!overlay&&!taskbar,loadForecast,state?.data?.lastRun);
- const forecast=useMemo(()=>fc.model&&state?predict(fc.model,state.feed.entries,now):null,[fc.model,state?.feed.entries,Math.floor(now/30000)]);
+ // TTM rechnet im Analyse-Thread: neuer Pfad bei jedem neuen Messwert.
+ const lastReading=state?.feed.entries.at(-1)?.time,[livePath,setLivePath]=useState<any>(null);
+ useEffect(()=>{if(fc.model?.best!=='ttm'||preview)return;let live=true;api.action('analysis',{kind:'forecast-live'}).then((r:any)=>live&&setLivePath(r?.error?null:r)).catch(()=>live&&setLivePath(null));return()=>{live=false;};},[fc.model?.best,lastReading]);
+ const forecast=useMemo(()=>fc.model&&state?predict(fc.model,state.feed.entries,now,livePath):null,[fc.model,state?.feed.entries,Math.floor(now/30000),livePath]);
  // gemeinsame Designsprache (src/nojo): Licht auf Glas, Perlen in Segmenten, Lichtleiste, Fensterknoepfe als Glaspille
  const loaded=!!state;
  useEffect(()=>{if(!loaded||overlay||taskbar)return;glassLight();liquid();const stopSeg=segments(document,'.n-seg, .segmented, .theme-switch');const sc=lightScroller(document.scrollingElement as HTMLElement,{insetTop:70});const wc=desktop?windowControls({minimize:()=>void api.action('window',{op:'minimize'}),toggleMaximize:()=>void api.action('window',{op:'maximize'}),close:()=>void api.action('window',{op:'close'})}):null;return()=>{stopSeg();sc.dispose();wc?.remove();};},[loaded]);

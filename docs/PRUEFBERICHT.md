@@ -281,3 +281,20 @@ Plan: `docs/PLAN-TANDEM-SICHER.md`.
 ### Offen
 - Teil 2: TTM bzw. Chronos-Bolt als ONNX (Export mit Python und PyTorch nötig).
 - In der App: Prognose mit echten Live-Werten.
+
+## Branch claude/prognose-ttm – 12. Oktober 2026: Prognose-Experiment Teil 2, IBM TTM (1.12.0)
+
+### Bestanden
+- `npm test`: 108 grün. Neu:
+  - **`tests/ttm.test.mjs`:** Prüfsummen stimmen; das Modell rechnet 12 Werte, ein ruhiger Verlauf bleibt ruhig; eine veränderte Modelldatei wird abgelehnt.
+  - **`tests/forecast.test.mjs`:** Ein Modell von außen wird nur mit 30 h am Stück geprüft und dann auf denselben Startpunkten wie die übrigen. Live gibt es ohne passenden Pfad keine Prognose.
+- **Test** (`D:\Dev\_tools	tm-spike`, nicht im Repo): 7 TTM-Varianten verglichen (Tabelle in `docs/PLAN-LANGZEIT.md`); Export mit Gleichheitsprüfung; onnxruntime-web in Node mit identischem RMSE (17,8) wie Python.
+- **Analyse-Thread** in Node, in Electron (`ELECTRON_RUN_AS_NODE`) und **aus `app.asar` eines lokal gepackten Builds** (`electron-builder --dir` in einen eigenen Ordner, kein Installer):
+  - Prüfung 4,1 s.
+  - TTM 16,2 / AR 16,7 / Fortschreibung 18,9 mg/dL bei 30 min.
+  - Live-Pfad mit 12 Werten.
+- **Echte DB-Kopie:** TTM bleibt mangels 30 h am Stück außen vor (51 Startpunkte); gezeigt wird die Fortschreibung.
+- `npx tsc --noEmit`, Build. Das Paket wächst um etwa 20 MB (WASM 14,2 MB, Modell 5,8 MB).
+
+### Offen
+- Installierte App mit echten Live-Werten. TTM kommt erst ins Spiel, wenn haze.db genug zusammenhängende Tage hat (Nightscout lückenlos, Clarity-Import).
