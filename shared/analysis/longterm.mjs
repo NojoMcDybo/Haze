@@ -6,6 +6,7 @@ import {DAY,defaultZone,dayStart,addDays} from './time.mjs';
 import {summary,hypos,inRange} from './glucose.mjs';
 import {mean,sd,median,fdr,spearmanTest,theilSen,mannKendall,meanDifference,changePoints} from './stats.mjs';
 import {prepare} from './index.mjs';
+import {patterns} from './patterns.mjs';
 const round=(v,d=0)=>v==null||!Number.isFinite(v)?null:Math.round(v*10**d)/10**d;
 // better: Richtung des Konsensziels (+1 höher besser, −1 niedriger besser); meaningful: kleinster spürbarer Unterschied.
 export const METRICS={
@@ -116,7 +117,7 @@ export function longterm(data,{from,to,tz=defaultZone(),seed=7,permutations=999}
  const firstData=all.findIndex(r=>r.valid||r.steps!=null||r.sleepScore!=null),rows=firstData<0?[]:all.slice(firstData);
  const validDays=rows.filter(r=>r.valid).length,caveats=['Beobachtungen in deinen eigenen Daten, kein Nachweis von Ursachen und keine Therapieempfehlung.'];
  const base={period:{from:P.from,to:P.to,firstDay:rows[0]?.date??null,lastDay:P.lastDay,days:rows.length,validDays},caveats};
- if(!rows.length)return {...base,weeks:[],months:[],comparisons:[],trends:[],changes:[],correlations:{found:[],tested:[]}};
+ if(!rows.length)return {...base,weeks:[],months:[],comparisons:[],trends:[],changes:[],correlations:{found:[],tested:[]},patterns:null};
  // Wochen (Montag bis Sonntag) und Kalendermonate.
  const group=(keyOf,validMin)=>{const map=new Map();for(const r of rows){const k=keyOf(r.date);if(!map.has(k))map.set(k,[]);map.get(k).push(r);}
   return [...map].map(([k,list])=>{const s=Math.max(P.from,dayStart(list[0].date,tz)),e=Math.min(P.to,dayStart(addDays(list.at(-1).date,1),tz));return {key:k,...aggregate(clean,list,s,e,validMin)};});};
@@ -145,5 +146,5 @@ export function longterm(data,{from,to,tz=defaultZone(),seed=7,permutations=999}
   if(m.better&&t.status!=='kein klarer Trend')t.towardTarget=(t.change>0)===(m.better>0);});
  if(validDays<28)caveats.push(`Erst ${validDays} Tage mit ausreichend Glukosewerten: Für Vergleiche braucht es je Zeitraum mindestens ${MIN_SIDE} Tage, für Trends ${MIN_WEEKS_TREND} Wochen.`);
  caveats.push('Wendepunkte und gleichzeitige Veränderungen zeigen, was zusammenfällt, nicht was die Ursache ist. Auch Sensor- oder Pumpenwechsel können Wendepunkte erzeugen.');
- return {...base,weeks,months,comparisons:cmp,trends,changes:changeEvents(rows),correlations:weekCorrelations(wk.filter(w=>w.enough),{seed,permutations}),metrics:METRICS};
+ return {...base,weeks,months,comparisons:cmp,trends,changes:changeEvents(rows),correlations:weekCorrelations(wk.filter(w=>w.enough),{seed,permutations}),metrics:METRICS,patterns:patterns({P,days:P.dayTable.slice(firstData),tz,seed})};
 }

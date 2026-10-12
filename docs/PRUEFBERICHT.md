@@ -242,3 +242,23 @@ Plan: `docs/PLAN-TANDEM-SICHER.md`.
 ### Offen
 - Wischen mit Touchpad und Maus in der installierten App: flüssig? Wie fühlt sich die Unschärfe auf der RX 6700 XT an?
 - Beim Maus-Ziehen erschien das Vorschau-Bildschirmfoto vergrößert; Layout und Breiten blieben gemessen korrekt. In der App prüfen.
+
+## Branch claude/muster – 12. Oktober 2026: Muster (PR E, 1.10.0)
+
+### Bestanden
+- `npm test`: 100 grün. Neu sind 7 Tests in `tests/patterns.test.mjs`:
+  - Fisher-Test mit bekannten Werten.
+  - Tagestypen: zwei Verläufe werden getrennt (Silhouette über 0,5) und als „Höher abends“ und „Ruhiger Tag“ benannt; Trainingstag ist gemeinsames Merkmal. Reines Rauschen ergibt keine Typen, unter 28 Tagen „zu wenige Daten“.
+  - k-Medoids ist reproduzierbar.
+  - In künstlichen Daten werden die Regeln „Training → Tief in der Nacht“ und „ohne Sportmodus → Tief“ gefunden und **bestätigt**. Beide eingebauten Infekt-Tage sind ungewöhnlich.
+  - Ohne Pumpe gibt es keine Sportmodus-Regel.
+  - Die Mindeststreuung verhindert Fehlalarme bei meist 0 % unter 70.
+  - Das Gedächtnis behält „zuerst gesehen“ und zeigt verschwundene Regeln.
+- **Zwei Fehler in der Entwicklung gefunden:**
+  - „zu ein Tief“ ist sprachlich korrigiert.
+  - Bei der Zeit unter 70 galt wegen einer Streuung von 0 jeder Tag mit einem Tief als ungewöhnlich. Behoben mit Mindeststreuung und „außerhalb des 28-Tage-Bereichs“.
+- `npx tsc --noEmit`, Build.
+- **Vorschau mit 240 künstlichen Tagen:** 2 bestätigte Regeln, 4 ungewöhnliche Tage. Tagestypen gibt es in den Demodaten nicht (Silhouette 0,22). Mit getrennten Testverläufen gerendert: zwei Kacheln mit Mini-Verlauf, Anteil, Zeit im Bereich und gemeinsamem Merkmal.
+
+### Offen
+- Muster mit echten Daten. Das Gedächtnis füllt sich erst über mehrere Auswertungen.

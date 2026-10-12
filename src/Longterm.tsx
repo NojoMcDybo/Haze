@@ -1,6 +1,7 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {format} from '../shared/model.mjs';
 import {More} from './More';
+import {Patterns} from './Patterns';
 // Langzeit (shared/analysis/longterm.mjs): Wochenverlauf mit Trend und Wendepunkten, Vergleiche, Wochen-Zusammenhänge, Monate.
 const num=(v:any,d=0)=>v==null||!Number.isFinite(v)?'—':v.toLocaleString('de-DE',{maximumFractionDigits:d,minimumFractionDigits:d});
 const dateKey=(k:string)=>{const [y,m,d]=k.split('-');return `${d}.${m}.${y.slice(2)}`;};
@@ -16,7 +17,7 @@ export function Longterm({load,unit,active,lastRun,source}:any){
  const [res,setRes]=useState<any>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
  useEffect(()=>{if(!active)return;let live=true;setBusy(true);setError('');load().then((r:any)=>{if(!live)return;if(r?.error||!r?.period)setError(r?.error||'Langzeitauswertung nicht verfügbar.');else setRes(r);}).catch((e:any)=>live&&setError(e.message)).finally(()=>live&&setBusy(false));return()=>{live=false;};},[active,lastRun,source]);
  const p=res?.period;
- return <section className="longterm" aria-label="Langzeit">
+ return <>{res?.patterns&&<Patterns p={res.patterns} unit={unit}/>}<section className="longterm" aria-label="Langzeit">
   <div className="analysis-head"><div><span className="eyebrow">LANGZEIT</span><h2>Wochen und Monate</h2></div>
    {p?.firstDay&&<span className="chart-label">{p.validDays} Tage mit Glukosedaten seit {dateKey(p.firstDay)}</span>}</div>
   {error&&<div className="notice n-liquid panel" role="status">{error}</div>}
@@ -33,7 +34,7 @@ export function Longterm({load,unit,active,lastRun,source}:any){
    </>}
    <More label="Wie belastbar ist das?"><ul className="caveats">{res.caveats.map((c:string)=><li key={c}>{c}</li>)}</ul></More>
   </div>}
- </section>;
+ </section></>;
 }
 function trendText(t:any,meta:any,unit:string){
  if(!t||t.status==='zu wenige Daten')return `Für einen Trend braucht es mindestens 8 Wochen mit Daten (bisher ${t?.n??0}).`;
