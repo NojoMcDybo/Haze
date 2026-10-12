@@ -83,6 +83,12 @@ export function openStore(file){
     daily:all('select date,steps,intensity_minutes as intensityMinutes,rhr,stress_avg as stressAvg,bb_min as bbMin,bb_max as bbMax,readiness,readiness_level as readinessLevel,acute_load as acuteLoad,acwr,training_status as trainingStatus,respiration,spo2,hrv_weekly as hrvWeekly,recovery_time as recoveryTime from daily order by date'),
    };
   },
+  // Körperdaten (Garmin) für „Schlaf und Tag“: Schlafphasen, Verläufe (ohne Trainingsdetails), Puls.
+  body(from,to){
+   return {stages:all('select night,start,end,stage from sleep_stage where end>? and start<? order by start',from,to),
+    series:all("select kind,time,value from series where time>=? and time<? and kind in ('body_battery','stress','steps','hrv','respiration','spo2') order by time",from,to),
+    hr:all('select time,bpm from hr where time>=? and time<? order by time',from,to)};
+  },
   stats(){
    const range=t=>get(`select count(*) n,min(${t==='activity'?'start':'time'}) first,max(${t==='activity'?'start':'time'}) last from ${t}`);
    return {glucose:range('glucose'),treatment:range('treatment'),activity:range('activity'),hr:range('hr'),
