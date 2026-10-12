@@ -5,6 +5,11 @@ import {Longterm} from './Longterm';
 import {Sources} from './Sources';
 import {More} from './More';
 import {ForecastCard} from './Forecast';
+import {useTween,useTweenArray} from './motion';
+// Zahl, die zum neuen Wert zählt (Kennzahlen, Legende).
+export function Num({v,f}:{v:any,f:(x:any)=>string}){const t=useTween(v);return <>{f(v==null?v:t)}</>;}
+// Platzhalter, solange gerechnet wird: zeigt die Form der Seite statt eines Satzes.
+export function Skeleton({rows=3,label}:{rows?:number,label:string}){return <div className="skeleton" role="status" aria-label={label}>{Array.from({length:rows},(_,i)=><i key={i} style={{['--i' as any]:i}}/>)}</div>;}
 // Auswertung aus haze.db (Analyse-Engine shared/analysis). Beschreibend, keine Therapiehinweise.
 const pct=(v:any,d=0)=>v==null?'—':v.toLocaleString('de-DE',{maximumFractionDigits:d,minimumFractionDigits:d});
 const dateKey=(k:string)=>{const [y,m,d]=k.split('-');return `${d}.${m}.`;};
@@ -28,16 +33,16 @@ export function Analysis({state,load,loadLong,loadForecast,unit,act,openSettings
   <div className="analysis-head"><div><span className="eyebrow">AUSWERTUNG</span><h2>Deine letzten {days} Tage</h2></div>
    <div className="segmented" role="group" aria-label="Zeitraum der Auswertung">{[14,30,90].map(d=><button key={d} aria-pressed={days===d} className={days===d?'active':''} onClick={()=>setDays(d)}>{d} T.</button>)}</div></div>
   {error&&<div className="notice n-liquid panel" role="status">{error}</div>}
-  {!res&&busy&&<p className="fine">Auswertung wird berechnet …</p>}
+  {!res&&busy&&<Skeleton rows={4} label="Auswertung wird berechnet"/>}
   {res&&<Guard><div className={busy?'analysis-body busy':'analysis-body'} aria-busy={busy}>
    <Quality res={res}/>
    {s?.mean==null?<p className="fine">Für diesen Zeitraum liegen noch keine Glukosewerte in der Datenbank. Die Synchronisierung läuft im Hintergrund; Lücken lassen sich unter Einstellungen › Daten nachholen.</p>:<>
    <div className="kpis">
-    <Kpi label="ZEIT IM BEREICH" value={pct(s.tir)} unit="%" note="Konsens-Ziel über 70 %" />
-    <Kpi label="UNTER 70" value={pct(s.tbr,1)} unit="%" note={`davon unter 54: ${pct(s.tbr54,1)} % · Ziel unter 4 %`}/>
-    <Kpi label="MITTELWERT" value={format(s.mean,unit)} unit={unit} note={`GMI ${pct(s.gmi,1)} %`}/>
-    <Kpi label="SCHWANKUNG (CV)" value={pct(s.cv)} unit="%" note="stabil bis 36 %"/>
-    <Kpi label="GRI" value={pct(s.gri)} unit="" note="Risikoindex 0–100, niedriger ist besser"/>
+    <Kpi label="ZEIT IM BEREICH" value={<Num v={s.tir} f={x=>pct(x)}/>} unit="%" note="Konsens-Ziel über 70 %" />
+    <Kpi label="UNTER 70" value={<Num v={s.tbr} f={x=>pct(x,1)}/>} unit="%" note={`davon unter 54: ${pct(s.tbr54,1)} % · Ziel unter 4 %`}/>
+    <Kpi label="MITTELWERT" value={<Num v={s.mean} f={x=>format(x,unit)}/>} unit={unit} note={`GMI ${pct(s.gmi,1)} %`}/>
+    <Kpi label="SCHWANKUNG (CV)" value={<Num v={s.cv} f={x=>pct(x)}/>} unit="%" note="stabil bis 36 %"/>
+    <Kpi label="GRI" value={<Num v={s.gri} f={x=>pct(x)}/>} unit="" note="Risikoindex 0–100, niedriger ist besser"/>
    </div>
    <RangeBar bands={s.bands}/>
    <article className="analysis-card"><div className="card-top"><div><span className="eyebrow">TAGESPROFIL (AGP)</span><h3>Typischer Tag</h3></div><span className="chart-label">{unit}</span></div><Agp agp={res.agp} unit={unit}/>
@@ -71,10 +76,12 @@ function RangeBar({bands}:any){
  if(!bands)return null;
  return <article className="analysis-card range-card"><div className="card-top"><div><span className="eyebrow">ZEIT IN BEREICHEN</span></div><span className="chart-label">mg/dL</span></div>
   <div className="range-bar" role="img" aria-label={BANDS.map(([k,l])=>`${l}: ${pct(bands[k],1)} %`).join(', ')}>{BANDS.map(([k,l])=>bands[k]>0&&<i key={k} className={'band-'+k} style={{flexGrow:bands[k]}} title={`${l} mg/dL: ${pct(bands[k],1)} %`}/>)}</div>
-  <ul className="range-legend">{BANDS.map(([k,l])=><li key={k}><i className={'band-'+k}/><span>{l}</span><b>{pct(bands[k],1)} %</b></li>)}</ul>
+  <ul className="range-legend">{BANDS.map(([k,l])=><li key={k}><i className={'band-'+k}/><span>{l}</span><b><Num v={bands[k]} f={x=>pct(x,1)}/> %</b></li>)}</ul>
  </article>;
 }
-function Agp({agp,unit}:any){
+const AGP_KEYS=['p5','p25','p50','p75','p95'];
+function Agp({agp:target,unit}:any){
+ const flat=useTweenArray(target.flatMap((b:any)=>AGP_KEYS.map(k=>b[k])),700),agp=target.map((b:any,i:number)=>({...b,...Object.fromEntries(AGP_KEYS.map((k,j)=>[k,flat[i*5+j]]))}));
  const ref=useRef<SVGSVGElement>(null),[w,setW]=useState(900),[hover,setHover]=useState<number|null>(null);
  useEffect(()=>{if(!ref.current)return;const ro=new ResizeObserver(([e])=>setW(Math.max(280,e.contentRect.width)));ro.observe(ref.current);return()=>ro.disconnect();},[]);
  const H=240,L=8,R=46,T=12,B=26,vals=agp.flatMap((b:any)=>[b.p5,b.p95]).filter((v:any)=>v!=null);
@@ -89,7 +96,7 @@ function Agp({agp,unit}:any){
   <svg ref={ref} viewBox={`0 0 ${w} ${H}`} role="img" aria-label="Tagesprofil: Median und Streuung der Glukose je Viertelstunde">
    <rect x={L} y={y(180)} width={w-L-R} height={y(70)-y(180)} className="agp-range"/>
    {[70,180].map(v=><g key={v}><line x1={L} x2={w-R} y1={y(v)} y2={y(v)} className={v===70?'agp-low':'agp-high'}/><text x={w-R+8} y={y(v)+4}>{format(v,unit)}</text></g>)}
-   <path d={area('p5','p95')} className="agp-outer"/><path d={area('p25','p75')} className="agp-inner"/><path d={line} className="agp-median"/>
+   <path d={area('p5','p95')} className="agp-outer"/><path d={area('p25','p75')} className="agp-inner"/><path d={line} className="agp-median draw" pathLength={1}/>
    {[0,180,360,540,720,900,1080,1260,1440].map(m=><text key={m} x={x(m)} y={H-6} textAnchor={m===0?'start':m===1440?'end':'middle'}>{m===1440?'24:00':hhmm(m)}</text>)}
    {bin&&<line x1={x(hover!)} x2={x(hover!)} y1={T} y2={H-B} className="chart-cursor"/>}
   </svg>

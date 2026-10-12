@@ -22,7 +22,7 @@ function Spark({profile}:{profile:number[]}){
  const W=160,H=54,lo=40,hi=Math.max(220,...profile)+10,x=(h:number)=>h/23*W,y=(v:number)=>H-(v-lo)/(hi-lo)*H;
  return <svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Typischer Verlauf dieses Tagestyps">
   <rect x={0} y={y(180)} width={W} height={y(70)-y(180)} className="agp-range"/>
-  <path d={'M'+profile.map((v,h)=>`${x(h).toFixed(1)} ${y(v).toFixed(1)}`).join('L')} className="spark-line"/></svg>;
+  <path d={'M'+profile.map((v,h)=>`${x(h).toFixed(1)} ${y(v).toFixed(1)}`).join('L')} className="spark-line draw" pathLength={1}/></svg>;
 }
 function DayTypes({t,unit}:any){
  return <article className="analysis-card"><div className="card-top"><div><span className="eyebrow">TAGESTYPEN</span><h3>Wie deine Tage typischerweise verlaufen</h3></div>

@@ -298,3 +298,17 @@ Plan: `docs/PLAN-TANDEM-SICHER.md`.
 
 ### Offen
 - Installierte App mit echten Live-Werten. TTM kommt erst ins Spiel, wenn haze.db genug zusammenhängende Tage hat (Nightscout lückenlos, Clarity-Import).
+
+## Branch claude/animation – 12. Oktober 2026: Bewegung (1.13.0)
+
+### Bestanden
+- `npm test`: 108 grün, `npx tsc --noEmit`, Build.
+- **Vorschau** (das Fenster war verdeckt, die Bildwiederholung also pausiert):
+  - Karten auf der sichtbaren Seite erscheinen; Karten unterhalb des sichtbaren Bereichs und auf der zweiten Seite warten, bis sie sichtbar werden.
+  - Neuester Messwert mit Ring.
+  - Kennzahlen springen bei verdecktem Fenster sofort auf den neuen Wert (14 → 90 Tage: 89 → 90 %). **Gefunden und behoben:** Vorher blieben Werte bei verdecktem Fenster auf dem alten Stand stehen.
+  - „Bewegung reduzieren“ (`data-motion=reduced`): Animationen `none`, Übergänge 0.
+  - Rückfall: Sichtbare Karten werden spätestens nach einer Sekunde gezeigt.
+
+### Offen
+- Die sichtbaren Animationen selbst (Gleiten, Zoom, Morph, Zeichnen) im sichtbaren Fenster bzw. in der installierten App ansehen.

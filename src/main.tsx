@@ -4,6 +4,7 @@ import {Icon} from './Icon';
 import {arrows,category,statusText,format,freshness,delta,demo,defaults} from '../shared/model.mjs';
 import './nojo/nojo-ui.css';
 import './style.css';
+import './motion.css';
 import {glassLight,lightScroller,liquid,segments,windowControls} from './nojo/nojo-ui';
 import {Widget} from './Widget';
 import {GarminPanel,useGarminConnection} from './Garmin';
@@ -13,6 +14,7 @@ import {Analysis} from './Analysis';
 import {DataPanel} from './Data';
 import {Pager,PageTabs,SwipeHint} from './Pager';
 import {useForecastModel} from './Forecast';
+import {useTween,useTweenArray,revealOnScroll} from './motion';
 import {predict} from '../shared/analysis/forecast.mjs';
 import {widgetDefaults,migrate} from '../shared/widget.mjs';
 declare global {interface Window {nebel?:any;}}
@@ -52,7 +54,11 @@ function ThemeSwitch({theme,onChange,glass}:any){return <div className={'theme-s
 function Chart({entries,hours=3,unit,now,compact=false,heart=[],heartActive=false,forecast=null}:any){
  const [selected,setSelected]=useState<number|null>(null),[hover,setHover]=useState<number|null>(null);const svg=useRef<SVGSVGElement>(null);const [dimensions,setDimensions]=useState({width:900,height:compact?130:260});
  useEffect(()=>{if(!svg.current)return;const ro=new ResizeObserver(([entry])=>{setDimensions({width:Math.max(120,entry.contentRect.width),height:Math.max(70,entry.contentRect.height)});});ro.observe(svg.current);return()=>ro.disconnect();},[]);
- const {points,low,high,start,end,min,max}=useMemo(()=>{const end0=Math.floor(now/60000)*60000+60000,start=end0-hours*3600000,end=forecast?.length?Math.max(end0,forecast.at(-1).time+60000):end0;const pts=entries.filter((e:any)=>e.time>=start&&e.time<=end0);const fl=(forecast||[]).map((f:any)=>f.lo),fh=(forecast||[]).map((f:any)=>f.hi);return {points:pts,low:70,high:180,start,end,min:Math.min(40,...pts.map((p:any)=>p.value-15),...fl.map((v:number)=>v-5)),max:Math.max(220,...pts.map((p:any)=>p.value+20),...fh.map((v:number)=>v+5))};},[entries,hours,Math.floor(now/60000),forecast]);
+ const goal=useMemo(()=>{const end0=Math.floor(now/60000)*60000+60000,start=end0-hours*3600000,end=forecast?.length?Math.max(end0,forecast.at(-1).time+60000):end0;const pts=entries.filter((e:any)=>e.time>=start&&e.time<=end0);const fl=(forecast||[]).map((f:any)=>f.lo),fh=(forecast||[]).map((f:any)=>f.hi);return {end0,start,end,min:Math.min(40,...pts.map((p:any)=>p.value-15),...fl.map((v:number)=>v-5)),max:Math.max(220,...pts.map((p:any)=>p.value+20),...fh.map((v:number)=>v+5))};},[entries,hours,Math.floor(now/60000),forecast]);
+ // Achsen gleiten zu neuen Grenzen: Zeitraumwechsel zoomt, neue Höchstwerte verschieben die Skala weich (motion.ts).
+ const [start,end,min,max]=useTweenArray([goal.start,goal.end,goal.min,goal.max],600),low=70,high=180;
+ const points=useMemo(()=>entries.filter((e:any)=>e.time>=Math.min(start,goal.start)&&e.time<=goal.end0),[entries,Math.min(start,goal.start),goal.end0]);
+ const newest=points.at(-1)?.time;
  const segments=useMemo(()=>compact?[]:heartSegments(heart||[],start,end),[heart,start,end,compact]);
  const showHeart=!compact&&(segments.length>0||heartActive);
  const W=dimensions.width,H=dimensions.height,L=compact?6:14,R=compact?35:45,T=compact?8:20,B=compact?20:showHeart?10:30;
@@ -79,7 +85,8 @@ function Chart({entries,hours=3,unit,now,compact=false,heart=[],heartActive=fals
   <text x={xp(forecast.at(-1).time)} y={T+12} textAnchor="end" className="forecast-label">Experiment · nicht belastbar</text></g>}
  {!showHeart&&[0,.5,1].map(v=><text key={v} x={L+v*(W-L-R)} y={H-8} textAnchor={v===0?'start':v===1?'end':'middle'} fill="var(--muted)">{time(start+(end-start)*v)}</text>)}
  {cursorX!=null&&<line className="chart-cursor" x1={cursorX} x2={cursorX} y1={T} y2={H-B}/>}
- {points.map((p:any,i:number)=><circle key={p.time} cx={xp(p.time)} cy={yp(p.value)} r={Math.max(1.2,Math.min(compact?2.6:4.1,(W-L-R)/Math.max(points.length,1)/2.6))} className={'point '+category(p.value)+(selected===i||point===p?' active':'')} tabIndex={i===(selected??points.length-1)?0:-1} role="button" aria-label={`${time(p.time)}: ${format(p.value,unit)} ${unit}, ${statusText(p.value)}${showHeart?((h:any)=>h?`, Puls ${h.bpm} bpm`:'')(nearestHeartRate(heart||[],p.time)):''}`} onClick={()=>setSelected(i)} onFocus={()=>setSelected(i)} onKeyDown={e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();const n=Math.max(0,Math.min(points.length-1,i+(e.key==='ArrowLeft'?-1:1)));setSelected(n);(svg.current?.querySelectorAll('.point')[n] as SVGElement)?.focus();}if(e.key==='Escape')setSelected(null);}}/>)}</svg>
+ {!compact&&newest!=null&&points.length>0&&<circle key={'ring'+newest} className={'point-ring '+category(points.at(-1).value)} cx={xp(newest)} cy={yp(points.at(-1).value)} r={6}/>}
+ {points.map((p:any,i:number)=><circle key={p.time} cx={xp(p.time)} cy={yp(p.value)} r={Math.max(1.2,Math.min(compact?2.6:4.1,(W-L-R)/Math.max(points.length,1)/2.6))} className={'point '+category(p.value)+(selected===i||point===p?' active':'')+(p.time===newest?' newest':'')} tabIndex={i===(selected??points.length-1)?0:-1} role="button" aria-label={`${time(p.time)}: ${format(p.value,unit)} ${unit}, ${statusText(p.value)}${showHeart?((h:any)=>h?`, Puls ${h.bpm} bpm`:'')(nearestHeartRate(heart||[],p.time)):''}`} onClick={()=>setSelected(i)} onFocus={()=>setSelected(i)} onKeyDown={e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();const n=Math.max(0,Math.min(points.length-1,i+(e.key==='ArrowLeft'?-1:1)));setSelected(n);(svg.current?.querySelectorAll('.point')[n] as SVGElement)?.focus();}if(e.key==='Escape')setSelected(null);}}/>)}</svg>
  {!points.length&&<div className="empty-chart">Keine Messungen in diesem Zeitraum</div>}
  {showHeart&&<HeartPanel segments={segments} start={start} end={end} W={W} L={L} R={R} cursorX={cursorX} pulse={pulse} time={time}/>}
  <div className={'chart-selection n-liquid'+(cursorTime!=null?' visible':'')} style={{'--x':cursorX==null?.5:cursorX/W} as any} aria-live="polite">{readout}</div>
@@ -104,8 +111,8 @@ function HeartPanel({segments,start,end,W,L,R,cursorX,pulse,time}:any){
   {!all.length&&<div className="empty-chart small">Pulsverlauf erscheint, sobald die Uhr Werte sendet</div>}
  </div>;
 }
-function Value({state,now,small=false}:any){const c=state.config,f=freshness(state.feed.entries,now,c.staleMinutes),v=f.last?.value;return <>
- <div className={'reading '+(v!=null?category(v):'')+(f.stale?' stale':'')}><span className="number">{format(v,c.unit)}</span><span className="trend" aria-label={f.stale?'Trend veraltet':f.last?.trend?'Trend '+f.last.trend:'Trend unbekannt'}>{f.stale?'':arrows[f.last?.trend]||'·'}</span></div>
+function Value({state,now,small=false}:any){const c=state.config,f=freshness(state.feed.entries,now,c.staleMinutes),v=f.last?.value,tv=useTween(v,900);return <>
+ <div className={'reading '+(v!=null?category(v):'')+(f.stale?' stale':'')}><span className="number" key={f.last?.time}>{format(v==null?v:tv,c.unit)}</span><span className="trend" aria-label={f.stale?'Trend veraltet':f.last?.trend?'Trend '+f.last.trend:'Trend unbekannt'}>{f.stale?'':arrows[f.last?.trend]||'·'}</span></div>
  <div className="eyebrow reading-unit">{c.unit} <span>·</span> {c.source==='demo'?'DEMO':'DEXCOM / NIGHTSCOUT'}</div>
  <div className={'age '+(f.stale?'warning':'')}>{f.text}</div>
  {f.last&&<div className={'age-line'+(f.stale?' stale':'')} key={f.last.time} title={f.stale?'Messung veraltet':'Bis zum nächsten Messwert (etwa alle 5 Minuten)'} style={{['--p' as any]:Math.min(1,Math.max(0,(now-f.last.time)/300000))}}><i/></div>}
@@ -152,7 +159,7 @@ function SettingsPanel({state,act,close,garmin,initial='connection'}:any){const 
   <p className="fine tight">{(c.detach||'fluid')==='locked'?'Gleitet nur am Rand entlang':(c.detach||'fluid')==='direct'?'Löst sich sofort; nah am Rand loslassen dockt an':'Ziehen dehnt die Verbindung, bis sie reißt'}</p>
   {(c.detach||'fluid')==='fluid'&&<label className="field">Haftstrecke · {c.adhesion??103} px<input aria-label="Haftstrecke" type="range" min="35" max="145" step="1" value={c.adhesion??103} onChange={e=>act('settings',{adhesion:Number(e.target.value)})}/></label>}</>}
   {!c.reduceMotion&&<label className="field">Flüssigkeitseffekt · {c.fluid??55} %<input aria-label="Flüssigkeitseffekt" type="range" min="0" max="100" step="1" value={c.fluid??55} onChange={e=>act('settings',{fluid:Number(e.target.value)})}/></label>}
-  <Toggle label="Bewegung reduzieren" value={c.reduceMotion} tip="Ohne Federn; die Windows-Einstellung gilt ebenfalls" onChange={(reduceMotion:boolean)=>act('settings',{reduceMotion})}/>
+  <Toggle label="Bewegung reduzieren" value={c.reduceMotion} tip="Ohne Federn und Animationen in der ganzen App; die Windows-Einstellung gilt ebenfalls" onChange={(reduceMotion:boolean)=>act('settings',{reduceMotion})}/>
   {c.dock&&<button className="button secondary full" onClick={()=>act('undock')}>Vom Rand lösen</button>}
  </Group>
  <Group title="Bedienung" hint={[c.locked&&'gesperrt',c.clickThrough&&'durchklickbar'].filter(Boolean).join(' · ')||'frei beweglich'}>
@@ -176,6 +183,9 @@ function App(){const garmin=useGarminConnection();const [page,setPage]=useState(
  useEffect(()=>{api.getState().then(setState).catch(e=>setFatal(e.message));const unsub=api.subscribe(setState);const timer=setInterval(()=>setNow(Date.now()),1000);const online=()=>api.action('refresh');addEventListener('online',online);const unsubSettings=window.nebel?.onSettings(()=>setSettings('connection'));return()=>{unsub();clearInterval(timer);removeEventListener('online',online);unsubSettings?.();}},[]);
  useEffect(()=>{if(!state)return;const theme=state.config.theme==='system'?(state.systemDark?'dark':'light'):state.config.theme;document.documentElement.dataset.theme=theme;document.documentElement.classList.toggle('overlay-document',overlay||taskbar);document.body.classList.toggle('overlay-body',overlay||taskbar);document.body.classList.toggle('native-dashboard',desktop&&!overlay&&!taskbar);},[state?.config.theme,state?.systemDark]);
  useEffect(()=>{if(toast){const id=setTimeout(()=>setToast(''),5000);return()=>clearTimeout(id);}},[toast]);
+ // „Bewegung reduzieren“ gilt für die ganze App (zusätzlich zur Windows-Einstellung); Karten erscheinen gestaffelt.
+ useEffect(()=>{document.documentElement.dataset.motion=state?.config.reduceMotion?'reduced':'';},[state?.config.reduceMotion]);
+ useEffect(()=>overlay||taskbar?undefined:revealOnScroll(),[]);
  const fc=useForecastModel(!!state?.config.forecastExperiment&&!overlay&&!taskbar,loadForecast,state?.data?.lastRun);
  // TTM rechnet im Analyse-Thread: neuer Pfad bei jedem neuen Messwert.
  const lastReading=state?.feed.entries.at(-1)?.time,[livePath,setLivePath]=useState<any>(null);

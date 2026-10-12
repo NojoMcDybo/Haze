@@ -1,6 +1,7 @@
 import React,{useEffect,useState} from 'react';
 import {format} from '../shared/model.mjs';
 import {More} from './More';
+import {Skeleton} from './Analysis';
 // Prognose-Experiment (shared/analysis/forecast.mjs). Standardmäßig aus; nur im Verlauf auf „Jetzt“, nie im Widget, keine Alarme.
 const num=(v:any,d=0)=>v==null||!Number.isFinite(v)?'—':v.toLocaleString('de-DE',{maximumFractionDigits:d,minimumFractionDigits:d});
 const MIN=[15,30,45,60],H=[3,6,9,12];
@@ -16,7 +17,7 @@ export function ForecastCard({state,act,load,active}:any){
  const m=model?.metrics,best=model?.best,n30=m?.naive?.[6],b30=m?.[best]?.[6];
  return <article className="analysis-card forecast-card"><div className="card-top"><div><span className="eyebrow">EXPERIMENT</span><h3>Kurzzeit-Prognose</h3></div><span className="experiment-tag">nicht belastbar</span></div>
   <p className="fine tight">Eine Linie mit Band zeigt im Verlauf auf „Jetzt“, wohin die Glukose in den nächsten 60 Minuten laufen <i>könnte</i>. Sie kennt weder Insulin noch Kohlenhydrate, Bewegung oder Control-IQ. <b>Keine Grundlage für Entscheidungen</b>: Für Behandlung zählen Sensor, Dexcom-Warnungen und Pumpe.</p>
-  {!model&&!error&&<p className="fine tight">Rückwärtsprüfung wird berechnet …</p>}
+  {!model&&!error&&<Skeleton rows={2} label="Rückwärtsprüfung wird berechnet"/>}
   {error&&<p className="fine tight warning">{error}</p>}
   {model&&(!model.enough?<p className="fine tight">Für eine Prüfung fehlen noch Daten: Es braucht etwa eine Woche mit fast lückenlosen Werten, für das gelernte Modell zusätzlich mehrere Wochen davor.</p>:<>
    <p className="verdict">{best==='naive'?<>Bisher schlägt kein Modell die einfache Fortschreibung. Bei 30 Minuten liegt sie im Mittel <b>{format(n30.rmse,'mg/dL')} mg/dL</b> daneben; Haze zeigt deshalb nur sie mit ihrem Band.</>
