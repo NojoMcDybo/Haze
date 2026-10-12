@@ -1,0 +1,52 @@
+/* Bewegung in Haze (zu src/motion.ts). Ruhig und kurz: Bewegung zeigt, was sich geändert hat, und hört dann auf.
+   Federkurven aus dem Design-System (--n-ease, --n-spring). „Bewegung reduzieren“ (Haze oder Windows) schaltet alles ab. */
+
+/* Karten und Listen erscheinen beim ersten Sichtbarwerden, gestaffelt nach Reihenfolge (--i). Nur „backwards“:
+   danach gilt wieder die eigene Transformation (z. B. Hover). */
+.reveal:not(.in){opacity:0}
+.reveal.in{animation:rise .62s var(--n-spring) backwards;animation-delay:calc(var(--i,0)*55ms)}
+@keyframes rise{from{opacity:0;transform:translateY(12px) scale(.985)}}
+
+/* Großer Wert: zählt zum neuen Wert (motion.ts) und wird dabei kurz scharf gestellt. */
+.reading .number{display:inline-block;animation:value-in .9s var(--n-ease) backwards}
+@keyframes value-in{from{opacity:.55;filter:blur(2.5px)}}
+.status-pill{transition:background-color .45s var(--n-ease),color .45s var(--n-ease)}
+
+/* Verlauf: neuester Messwert springt herein und sendet einen Ring aus; Punkte reagieren auf Hover. */
+.chart .point{transform-box:fill-box;transform-origin:center;transition:transform .3s var(--n-spring),stroke-width .2s}
+.chart .point:hover,.chart .point.active{transform:scale(1.35)}
+.chart .point.newest{animation:point-in .75s var(--n-spring) backwards}
+@keyframes point-in{from{transform:scale(0);opacity:0}}
+.point-ring{fill:none;stroke-width:1.5;transform-box:fill-box;transform-origin:center;animation:ring 2.4s var(--n-ease) forwards;pointer-events:none}
+.point-ring.normal{stroke:var(--text)}.point-ring.low{stroke:var(--low)}.point-ring.high{stroke:var(--high)}
+@keyframes ring{0%{transform:scale(.6);opacity:.65}100%{transform:scale(2.6);opacity:0}}
+.chart-selection{transition:opacity .2s var(--n-ease),left .12s linear}
+.chart .forecast{animation:fade-in .9s var(--n-ease) backwards .2s}
+@keyframes fade-in{from{opacity:0}}
+
+/* Linien zeichnen sich beim ersten Erscheinen (pathLength=1). */
+.draw{stroke-dasharray:1;stroke-dashoffset:1;animation:draw 1.2s var(--n-ease) forwards .15s}
+@keyframes draw{to{stroke-dashoffset:0}}
+.agp-outer,.agp-inner{animation:fade-in 1s var(--n-ease) backwards .1s}
+
+/* Balken wachsen von links. */
+.range-bar,.tir-meter{transform-origin:left center;animation:grow-x .9s var(--n-spring) backwards .1s}
+.range-bar i{transition:flex-grow .7s var(--n-spring)}
+@keyframes grow-x{from{transform:scaleX(0)}}
+
+/* Kacheln und Karten reagieren auf den Zeiger. */
+.source-tile,.day-type,.kpi{transition:transform .35s var(--n-spring),box-shadow .35s var(--n-ease)}
+@media(hover:hover){.source-tile:hover,.day-type:hover,.kpi:hover{transform:translateY(-2px)}}
+.source-dot{transition:background .5s var(--n-ease),box-shadow .5s var(--n-ease)}
+.source-tile.ok .source-dot{animation:dot-ok .6s var(--n-spring) backwards}
+@keyframes dot-ok{from{transform:scale(0)}}
+
+/* Laden: Platzhalter in der Form der Seite, mit ruhigem Schimmer. */
+.skeleton{display:grid;gap:12px;margin:6px 0 4px}
+.skeleton i{display:block;height:74px;border-radius:18px;background:linear-gradient(100deg,var(--pill) 30%,color-mix(in srgb,var(--pill) 70%,var(--text) 6%) 50%,var(--pill) 70%) 0 0/300% 100%;animation:shimmer 1.6s linear infinite;animation-delay:calc(var(--i,0)*-.2s)}
+.skeleton i:first-child{height:44px;width:60%}
+@keyframes shimmer{from{background-position:100% 0}to{background-position:-200% 0}}
+
+/* Aus: Haze-Einstellung „Bewegung reduzieren“ oder Windows. */
+:root[data-motion=reduced] *,:root[data-motion=reduced] *::before,:root[data-motion=reduced] *::after{animation:none!important;transition-duration:.01ms!important}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition-duration:.01ms!important}}

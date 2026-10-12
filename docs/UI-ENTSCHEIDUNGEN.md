@@ -16,6 +16,25 @@ Stand: 12. Oktober 2026. Nojos Vorgabe: Die wachsende Zahl an Funktionen darf di
 - **Handlungen dort, wo man sie braucht.** Die Datenquellen stehen oben auf der Auswertung, als vier Kacheln mit Status und genau einer nächsten Handlung: verbinden, anmelden, einrichten oder importieren. Das Tandem-Einrichten klappt direkt dort auf. Einstellungen › Daten bleibt für Details und Seltenes.
 - **Aufklappen statt Dauertext.** Erklärungen („Wie lese ich das?“) und Grenzen („Wie belastbar ist das?“) sind zu, bis man sie öffnet. Das Plus dreht sich zum Kreuz, der Inhalt gleitet auf.
 
+## Bewegung (1.13)
+
+Bewegung zeigt, was sich geändert hat, und hört dann auf (`src/motion.ts`, `src/motion.css`). Die Federkurven kommen aus dem Design-System (`--n-ease`, `--n-spring`).
+- **Werte gleiten statt zu springen:**
+  - der große Glukosewert, die Kennzahlen und die Legende der Bereiche zählen zum neuen Wert;
+  - das Tagesprofil morpht beim Wechsel 14/30/90 Tage;
+  - der Wochenverlauf morpht beim Kennzahl-Wechsel, die Achsen gleiten mit.
+- **Verlauf auf „Jetzt“:**
+  - Die Zeit- und Glukoseachse gleiten, so zoomt der Wechsel 3/6/12/24 Std.
+  - Der neueste Messwert springt herein und sendet einen Ring aus.
+  - Punkte wachsen unter dem Zeiger.
+  - Die Prognose blendet ein.
+- **Erstes Erscheinen:**
+  - Karten, Kacheln und Listen kommen gestaffelt leicht von unten, sobald sie sichtbar werden.
+  - Linien (Median, Wochenverlauf, Tagestypen) zeichnen sich.
+  - Balken wachsen von links.
+- **Laden:** Schimmernde Platzhalter in der Form der Seite statt „wird berechnet …“.
+- **Abschalten:** „Bewegung reduzieren“ in Haze oder in Windows schaltet alles ab. Bei verdecktem Fenster springen Werte sofort ans Ziel, weil der Browser dort die Bildwiederholung pausiert. Ein Rückfall sorgt dafür, dass keine Karte unsichtbar bleibt.
+
 ## Nächste Schritte (vorgeschlagen)
 
 - **Kennzahlen als eine Karte mit zwei Spalten** statt fünf Kacheln, wie die `statlist` in Nebel. Das ist ruhiger und auf dem Handy kürzer.

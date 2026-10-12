@@ -2,6 +2,8 @@ import React,{useEffect,useRef,useState} from 'react';
 import {format} from '../shared/model.mjs';
 import {More} from './More';
 import {Patterns} from './Patterns';
+import {useTweenArray} from './motion';
+import {Skeleton} from './Analysis';
 // Langzeit (shared/analysis/longterm.mjs): Wochenverlauf mit Trend und Wendepunkten, Vergleiche, Wochen-Zusammenhänge, Monate.
 const num=(v:any,d=0)=>v==null||!Number.isFinite(v)?'—':v.toLocaleString('de-DE',{maximumFractionDigits:d,minimumFractionDigits:d});
 const dateKey=(k:string)=>{const [y,m,d]=k.split('-');return `${d}.${m}.${y.slice(2)}`;};
@@ -21,7 +23,7 @@ export function Longterm({load,unit,active,lastRun,source}:any){
   <div className="analysis-head"><div><span className="eyebrow">LANGZEIT</span><h2>Wochen und Monate</h2></div>
    {p?.firstDay&&<span className="chart-label">{p.validDays} Tage mit Glukosedaten seit {dateKey(p.firstDay)}</span>}</div>
   {error&&<div className="notice n-liquid panel" role="status">{error}</div>}
-  {!res&&busy&&<p className="fine">Langzeit wird berechnet …</p>}
+  {!res&&busy&&<Skeleton rows={3} label="Langzeit wird berechnet"/>}
   {res&&<div className={busy?'analysis-body busy':'analysis-body'} aria-busy={busy}>
    {!res.weeks.length?<p className="fine">Noch keine Daten für die Langzeit. Sie füllt sich mit jeder Woche; Garmin und Pumpe holen bis zu 180 Tage nach.</p>:<>
    <WeekChart res={res} unit={unit}/>
@@ -49,10 +51,10 @@ function WeekChart({res,unit}:any){
  useEffect(()=>{if(!ref.current)return;const ro=new ResizeObserver(([e])=>setW(Math.max(280,e.contentRect.width)));ro.observe(ref.current);return()=>ro.disconnect();},[]);
  if(!options.length)return <article className="analysis-card"><div className="card-top"><div><span className="eyebrow">VERLAUF</span><h3>Woche für Woche</h3></div></div>
   <p className="fine">Der Wochenverlauf beginnt, sobald zwei Wochen mit je mindestens 4 Tagen Glukosedaten vorliegen (bisher {res.weeks.filter((x:any)=>x.enough).length}).</p></article>;
- const meta=res.metrics[key],weeks=res.weeks.map((x:any,i:number)=>({...x,i})),pts=weeks.filter((x:any)=>x[key]!=null),t=res.trends.find((x:any)=>x.key===key);
+ const meta=res.metrics[key],tw=useTweenArray(res.weeks.map((x:any)=>x[key]),650),weeks=res.weeks.map((x:any,i:number)=>({...x,[key]:x[key]==null?null:tw[i],i})),pts=weeks.filter((x:any)=>x[key]!=null),t=res.trends.find((x:any)=>x.key===key);
  const H=220,L=8,R=52,T=14,B=26,n=Math.max(2,weeks.length);
  const vs=pts.map((x:any)=>x[key]),ref70=key==='tir'?[70]:key==='tbr'?[4]:[];
- let lo=Math.min(...vs,...ref70),hi=Math.max(...vs,...ref70);const pad=(hi-lo)*.15||Math.abs(hi)*.1||1;lo-=pad;hi+=pad;if(key==='tir'||key==='tbr')lo=Math.max(0,lo);if(key==='tir')hi=Math.min(100,hi);
+ const goal=(()=>{const raw=res.weeks.map((x:any)=>x[key]).filter((v:any)=>v!=null);let lo=Math.min(...raw,...ref70),hi=Math.max(...raw,...ref70);const pad=(hi-lo)*.15||Math.abs(hi)*.1||1;lo-=pad;hi+=pad;if(key==='tir'||key==='tbr')lo=Math.max(0,lo);if(key==='tir')hi=Math.min(100,hi);return [lo,hi];})(),[lo,hi]=useTweenArray(goal,650);
  const x=(i:number)=>L+(i+.5)/n*(w-L-R),y=(v:number)=>T+(hi-v)/(hi-lo)*(H-T-B);
  // Linie mit Unterbrechung, wenn Wochen fehlen.
  let path='';pts.forEach((p:any,j:number)=>{path+=(j&&pts[j-1].i===p.i-1?'L':'M')+`${x(p.i).toFixed(1)} ${y(p[key]).toFixed(1)}`;});
@@ -70,7 +72,7 @@ function WeekChart({res,unit}:any){
     {niceTicks(lo,hi,ref70).map(v=><text key={v} x={w-R+8} y={y(v)+4}>{val(key,v,unit,{d:key==='mean'&&unit==='mmol/L'?1:0})}</text>)}
     {changes.map((c:any)=>{const i=weekIndex(c.date);return i<0?null:<g key={c.date}><line x1={x(i)} x2={x(i)} y1={T} y2={H-B} className="lt-change"/><text x={x(i)+5} y={T+9} className="lt-change-label">ab {short(c.date)}</text></g>;})}
     {trend&&<line x1={x(pts[0].i)} x2={x(pts.at(-1).i)} y1={y(trend.intercept+trend.slope*pts[0].i)} y2={y(trend.intercept+trend.slope*pts.at(-1).i)} className="lt-trend"/>}
-    <path d={path} className="lt-line"/>
+    <path d={path} className="lt-line draw" pathLength={1}/>
     {pts.map((p:any)=><circle key={p.key} cx={x(p.i)} cy={y(p[key])} r={hover===p.i?5:3.5} className="lt-point" style={{opacity:.35+.65*Math.min(1,p.validDays/7)}}/>)}
     {ticks.map((k:any)=><text key={k.key} x={x(k.i)} y={H-6} textAnchor="middle">{short(k.key)}</text>)}
     {sel&&<line x1={x(hover!)} x2={x(hover!)} y1={T} y2={H-B} className="chart-cursor"/>}

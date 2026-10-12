@@ -1,4 +1,5 @@
 import React,{useEffect,useLayoutEffect,useRef} from 'react';
+import {reducedMotion} from './motion';
 // Seiten wie in Nebel: Die ankommende Seite schiebt sich von rechts über die vorige und deckt sie ab; die darunter bleibt
 // stehen, wird unscharf und blasser. Wirkt wie ein aufgelegtes Blatt, nicht wie ein Karussell. Der Finger (Maus, Touch,
 // Touchpad) führt die Seite 1:1; beim Loslassen entscheidet die Geschwindigkeit, sonst die Hälfte. Reiter und Strg+Pfeile.
@@ -9,7 +10,7 @@ const SNAP_MS=560;
 export function Pager({page,onPage,labels,children}:{page:number,onPage:(p:number)=>void,labels:string[],children:React.ReactNode}){
  const ref=useRef<HTMLDivElement>(null),pages=React.Children.toArray(children),last=pages.length-1;
  const prog=useRef(page),settled=useRef(page),drag=useRef<any>(null),moving=useRef<number[]>([]),timer=useRef<any>(0),scrolls=useRef<number[]>([]),wheel=useRef<any>(null);
- const reduce=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
+ const reduce=reducedMotion;
  const els=()=>[...(ref.current?.children||[])] as HTMLElement[];
  // Höhe: während einer Bewegung die größere der beteiligten Seiten, sonst die aktive.
  const fit=()=>{const el=ref.current;if(!el)return;const list=els(),show=moving.current.length?moving.current:[settled.current];el.style.height=Math.max(...show.map(i=>list[i]?.offsetHeight||0))+'px';};
