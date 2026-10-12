@@ -11,3 +11,7 @@ release/
 state/
 settings.json
 *.xml
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
