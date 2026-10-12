@@ -39,7 +39,7 @@ export function DataPanel({state,act}:any){
 }
 function Segmented({label,value,options,onChange}:any){return <div className="field" role="group" aria-label={label}>{label}<div className="segmented compact">{options.map(([v,text]:any)=><button key={v} type="button" aria-pressed={value===v} className={value===v?'active':''} onClick={()=>onChange(v)}>{text}</button>)}</div></div>;}
 // Tandem t:slim X2 über Tandem Source. Zugang nur DPAPI-verschlüsselt, tconnectsync schreibt nur in Haze (nicht in Nightscout).
-function TandemCard({state,act}:any){
+export function TandemCard({state,act}:any){
  const c=state.config,t=state.data?.tandem||{};
  const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[busy,setBusy]=useState(''),[result,setResult]=useState<any>(null);
  const run=async(label:string,type:string,payload:any={})=>{setBusy(label);setResult(null);const r=await act(type,payload);setBusy('');if(r&&('ok' in r))setResult({label,...r});return r;};

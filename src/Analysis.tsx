@@ -2,6 +2,8 @@ import React,{useEffect,useRef,useState} from 'react';
 import {format} from '../shared/model.mjs';
 import './analysis.css';
 import {Longterm} from './Longterm';
+import {Sources} from './Sources';
+import {More} from './More';
 // Auswertung aus haze.db (Analyse-Engine shared/analysis). Beschreibend, keine Therapiehinweise.
 const pct=(v:any,d=0)=>v==null?'—':v.toLocaleString('de-DE',{maximumFractionDigits:d,minimumFractionDigits:d});
 const dateKey=(k:string)=>{const [y,m,d]=k.split('-');return `${d}.${m}.`;};
@@ -14,13 +16,14 @@ class Guard extends React.Component<{children:React.ReactNode},{error:string}>{
  render(){return this.state.error?<div className="notice n-liquid panel" role="status">Dieser Teil der Auswertung konnte nicht angezeigt werden ({this.state.error}).</div>:this.props.children;}
 }
 // active: Seite sichtbar. Geladen wird erst beim ersten Öffnen der Seite, danach bei neuen Daten.
-export function Analysis({state,load,loadLong,unit,active=true}:any){
+export function Analysis({state,load,loadLong,unit,act,openSettings,active=true}:any){
  const [days,setDays]=useState(14),[res,setRes]=useState<any>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const lastRun=state.data?.lastRun,source=state.config.source;
  const opened=useRef(false);if(active)opened.current=true;
  useEffect(()=>{if(!opened.current)return;let live=true;setBusy(true);setError('');load(days).then((r:any)=>{if(!live)return;if(r?.error||!r?.summary)setError(r?.error||'Auswertung nicht verfügbar.');else setRes(r);}).catch((e:any)=>live&&setError(e.message)).finally(()=>live&&setBusy(false));return()=>{live=false;};},[days,lastRun,source,active&&!res]);
  const s=res?.summary;
  return <section className="analysis" aria-label="Auswertung">
+  {act&&<Sources state={state} act={act} openSettings={openSettings}/>}
   <div className="analysis-head"><div><span className="eyebrow">AUSWERTUNG</span><h2>Deine letzten {days} Tage</h2></div>
    <div className="segmented" role="group" aria-label="Zeitraum der Auswertung">{[14,30,90].map(d=><button key={d} aria-pressed={days===d} className={days===d?'active':''} onClick={()=>setDays(d)}>{d} T.</button>)}</div></div>
   {error&&<div className="notice n-liquid panel" role="status">{error}</div>}
@@ -37,7 +40,7 @@ export function Analysis({state,load,loadLong,unit,active=true}:any){
    </div>
    <RangeBar bands={s.bands}/>
    <article className="analysis-card"><div className="card-top"><div><span className="eyebrow">TAGESPROFIL (AGP)</span><h3>Typischer Tag</h3></div><span className="chart-label">{unit}</span></div><Agp agp={res.agp} unit={unit}/>
-    <p className="fine tight">Linie: Median · dunkles Band: mittlere 50 % · helles Band: 5–95 %. Kompressionstiefs und Sensor-Aufwärmphasen sind herausgenommen.</p></article>
+    <More label="Wie lese ich das?"><p className="fine tight">Linie: Median · dunkles Band: mittlere 50 % · helles Band: 5–95 %. Kompressionstiefs und Sensor-Aufwärmphasen sind herausgenommen.</p></More></article>
    <Insights insights={res.insights}/>
    <div className="analysis-grid">
     <Activities res={res}/>
@@ -45,7 +48,7 @@ export function Analysis({state,load,loadLong,unit,active=true}:any){
     <Sites res={res} unit={unit}/>
    </div>
    </>}
-   <ul className="caveats">{res.caveats.map((c:string)=><li key={c}>{c}</li>)}</ul>
+   <More label="Wie belastbar ist das?"><ul className="caveats">{res.caveats.map((c:string)=><li key={c}>{c}</li>)}</ul></More>
   </div></Guard>}
   {loadLong&&<Guard><Longterm load={loadLong} unit={unit} active={opened.current} lastRun={lastRun} source={source}/></Guard>}
  </section>;

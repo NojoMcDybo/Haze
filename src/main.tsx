@@ -11,7 +11,7 @@ import {heartSegments,nearestHeartRate} from '../shared/garmin.mjs';
 import {DockLab} from './DockLab';
 import {Analysis} from './Analysis';
 import {DataPanel} from './Data';
-import {Pager,PageTabs} from './Pager';
+import {Pager,PageTabs,SwipeHint} from './Pager';
 import {widgetDefaults,migrate} from '../shared/widget.mjs';
 declare global {interface Window {nebel?:any;}}
 const desktop=!!window.nebel;
@@ -189,7 +189,8 @@ function App(){const garmin=useGarminConnection();const [page,setPage]=useState(
  <div className="range-picker segmented" role="group" aria-label="Zeitraum">{[3,6,12,24].map(h=>{const t=tirFor(h);return <button key={h} aria-pressed={hours===h} className={hours===h?'active':''} onClick={()=>setHours(h)} title={t==null?`${h} Stunden`:`${h} Stunden · ${t} % im Zielbereich`} aria-label={t==null?`${h} Stunden`:`${h} Stunden, ${t} Prozent im Zielbereich`}>{h}<span> Std.</span>{t!=null&&<i className="tir" style={{['--p' as any]:t/100}}/>}</button>})}</div>
  <section className="stats"><article><div className="eyebrow">IM BEREICH · {hours} STD.</div><strong>{tir==null?'—':tir}<small>{tir!=null?' %':''}</small></strong><span>Anteil vorhandener Messpunkte</span></article><article><div className="eyebrow">LETZTE MESSUNG</div><strong className="stat-time">{f.last?new Date(f.last.time).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}):'—'}</strong><span>{f.stale?'Keine aktuelle Messung':`${f.minutes} Minuten alt`}</span></article><article><div className="eyebrow">DATENQUELLE</div><strong className="stat-source">{c.source==='demo'?'Demo':'Nightscout'}</strong><span>{c.source==='demo'?'Beispieldaten, keine echten Werte':state.feed.error?'Verbindung unterbrochen':'Nur lesender Zugriff'}</span></article></section>
  <section className="bottom-card"><div className="bottom-icon"><Icon name="widget" size={24}/></div><div><h3>Dein Wert. Auch nebenbei.</h3><p>Ein kleines Fenster für Arbeit und Gaming.</p></div><button className="button primary" onClick={()=>act('overlay')}>Widget öffnen<Icon name="open" size={18}/></button><button className="icon-button" title="Widget-Einstellungen" aria-label="Widget-Einstellungen" onClick={()=>setSettings('overlay')}><Icon name="sliders" size={20}/></button></section>
- </div><Analysis state={state} unit={c.unit} load={loadAnalysis} loadLong={loadLongterm} active={page===1}/></Pager>
+ <SwipeHint title="Auswertung" text="Zeit im Bereich, Langzeit und Datenquellen · nach links wischen" onClick={()=>setPage(1)}/>
+ </div><Analysis state={state} unit={c.unit} load={loadAnalysis} loadLong={loadLongterm} act={act} openSettings={setSettings} active={page===1}/></Pager>
  <footer><span>Haze <span className="muted">/</span> {state.version}</span><span>{c.source==='demo'?'Demomodus · frei erfundene Messwerte':'Zusätzliche Anzeige · Dexcom-Warnungen weiter verwenden'}</span><button onClick={()=>act('refresh')}><Icon name="refresh" size={13}/>Aktualisieren</button></footer>
  </main>{!c.configured&&!preview&&<div className="backdrop"><section className="setup n-liquid panel" data-refract="10" role="dialog" aria-modal="true" aria-label="Einrichtung"><span className="brand">Haze</span><div className="eyebrow">WILLKOMMEN IN DEINER ANSICHT</div><h1>Weniger suchen.<br/>Mehr im Blick.</h1><p className="muted">Deine Glukosewerte, ruhig und übersichtlich.</p><ConnectionForm wizard state={state} act={act} onDone={()=>{}}/></section></div>}{settings&&<SettingsPanel state={state} garmin={garmin} act={act} close={()=>setSettings(null)} initial={settings}/>} {toast&&<div role="status" className="toast n-liquid panel">{toast}</div>}</>;
 }

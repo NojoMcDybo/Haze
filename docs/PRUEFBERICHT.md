@@ -224,3 +224,21 @@ Plan: `docs/PLAN-TANDEM-SICHER.md`.
 
 ### Offen
 - Langzeit mit mehreren Monaten echter Daten: Garmin- und Tandem-Nachladen sowie Clarity-Export.
+
+## Branch claude/bedienung – 12. Oktober 2026: Absturz beim Beenden, Seitenwechsel wie Nebel, Datenquellen (1.9.1)
+
+### Bestanden
+- **Absturz „statement has been finalized“ behoben.** Beim Beenden schloss Haze die Datenbank, behielt aber den Verweis darauf. Ging danach das Garmin-Pulsfenster zu, fragte die Statusmeldung die geschlossene Datenbank ab, und der Hauptprozess stürzte ab.
+  - Fix: `DataService.close` setzt `db` vorher auf `null`, der Statuszugriff ist abgesichert, `store.close` ist doppelt aufrufbar.
+  - Regressionstest in `tests/data.test.mjs`.
+- **Seitenwechsel nach Nebel** (`src/Pager.tsx`, siehe `docs/UI-ENTSCHEIDUNGEN.md`). In der Vorschau geprüft:
+  - Touchpad (`wheel` mit `deltaX`): Die Seite folgt (75 % → 0 %), die untere wird unscharf und blasser, rastet ein und wird danach ausgeblendet. Am linken Rand federt sie auf 112 % und zurück.
+  - Maus-Ziehen wechselt die Seite, Reiter und Höhe folgen.
+  - Die Verschiebung steht in Prozent: Eine erste Fassung in Pixeln war beim Laden kurz falsch.
+- **Datenquellen-Kacheln** oben auf der Auswertung. Tandem klappt dort auf; 375 px ohne Überlaufen.
+- **Aufklappbare Erklärungen und Hinweise** (`src/More.tsx`).
+- `npm test`: 93 grün, `npx tsc --noEmit`, Build.
+
+### Offen
+- Wischen mit Touchpad und Maus in der installierten App: flüssig? Wie fühlt sich die Unschärfe auf der RX 6700 XT an?
+- Beim Maus-Ziehen erschien das Vorschau-Bildschirmfoto vergrößert; Layout und Breiten blieben gemessen korrekt. In der App prüfen.

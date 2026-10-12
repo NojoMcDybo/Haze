@@ -21,7 +21,9 @@ module.exports=class DataService{
  tz(){return this.time.defaultZone();}
  refreshStats(){try{this.status.stats=this.db.stats();this.status.gaps=this.db.gaps().slice(-20).reverse();}catch{}}
  publicStatus(){const c=this.config(),i=this.tandem.info();return {...this.status,garmin:{...this.garmin.state,enabled:!!c.garminConnect},
-  tandem:{enabled:!!c.tandem?.enabled,installed:this.tandem.installed(),version:i?.version??null,python:i?.python??null,busy:this.tandem.busy,cursor:this.db?.state('tandem-sync').detail??null}};}
+  tandem:{enabled:!!c.tandem?.enabled,installed:this.tandem.installed(),version:i?.version??null,python:i?.python??null,busy:this.tandem.busy,cursor:this.cursor('tandem-sync')}};}
+ // Beim Beenden ist die Datenbank zu, Statusmeldungen (z. B. vom Garmin-Fenster) dürfen dann nicht mehr auf sie zugreifen.
+ cursor(source){try{return this.db?.state(source).detail??null;}catch{return null;}}
  // Fortschritt höchstens zweimal pro Sekunde melden (jede Meldung erreicht Dashboard, Webansicht und Notch).
  set(patch){Object.assign(this.status,patch);const now=Date.now();if(now-(this.emitted||0)>=500){this.emitted=now;this.changed();}else if(!this.pending)this.pending=setTimeout(()=>{this.pending=null;this.emitted=Date.now();this.changed();},500);}
  start(){this.boot=setTimeout(()=>this.run('start'),15000);this.timer=setInterval(()=>this.run('stündlich'),HOUR);}
@@ -82,5 +84,5 @@ module.exports=class DataService{
   });
   this.cache.set(key,job);job.catch(()=>this.cache.delete(key));return job;
  }
- close(){clearTimeout(this.boot);clearTimeout(this.pending);clearInterval(this.timer);this.garmin.dispose();try{this.db?.close();}catch{}}
+ close(){clearTimeout(this.boot);clearTimeout(this.pending);clearInterval(this.timer);const db=this.db;this.db=null;this.garmin.dispose();try{db?.close();}catch{}}
 };

@@ -140,3 +140,11 @@ test('Lücken: erkennen, kurze Aussetzer ignorieren, offenes Ende bis jetzt',()=
  assert.equal(detectGaps([T0,T0+20*MIN,T0+40*MIN],{from:T0,to:T0+45*MIN,now:T0+45*MIN}).length,0,'20 min Aussetzer < 30 min');
  const open=detectGaps(times,{from:T0,to:T0+10*DAY,now:T0+5*DAY});assert.equal(open.at(-1).end,T0+5*DAY);
 });
+test('Datendienst: Status nach dem Schließen der Datenbank wirft nicht (Absturz beim Beenden, 1.9.0)',async()=>{
+ const {createRequire}=await import('node:module');
+ const DataService=createRequire(import.meta.url)('../desktop/data.cjs'),dir=fs.mkdtempSync(path.join(os.tmpdir(),'haze-close-'));
+ const d=new DataService({dir,config:()=>({}),token:()=>'',changed:()=>{}});await d.init();
+ assert.equal(d.publicStatus().tandem.cursor,null);d.close();
+ assert.doesNotThrow(()=>d.publicStatus());assert.doesNotThrow(()=>d.close());assert.equal(d.publicStatus().tandem.cursor,null);
+ fs.rmSync(dir,{recursive:true,force:true});
+});

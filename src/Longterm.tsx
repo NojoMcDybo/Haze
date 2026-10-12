@@ -1,5 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {format} from '../shared/model.mjs';
+import {More} from './More';
 // Langzeit (shared/analysis/longterm.mjs): Wochenverlauf mit Trend und Wendepunkten, Vergleiche, Wochen-Zusammenhänge, Monate.
 const num=(v:any,d=0)=>v==null||!Number.isFinite(v)?'—':v.toLocaleString('de-DE',{maximumFractionDigits:d,minimumFractionDigits:d});
 const dateKey=(k:string)=>{const [y,m,d]=k.split('-');return `${d}.${m}.${y.slice(2)}`;};
@@ -30,7 +31,7 @@ export function Longterm({load,unit,active,lastRun,source}:any){
    </div>
    <Months res={res} unit={unit}/>
    </>}
-   <ul className="caveats">{res.caveats.map((c:string)=><li key={c}>{c}</li>)}</ul>
+   <More label="Wie belastbar ist das?"><ul className="caveats">{res.caveats.map((c:string)=><li key={c}>{c}</li>)}</ul></More>
   </div>}
  </section>;
 }
@@ -90,7 +91,7 @@ function Comparisons({res,unit}:any){
    <tbody>{rows.map((m:any)=>{const meta=res.metrics[m.key],u=unitOf(m.key,unit,meta);return <tr key={m.key}><td>{meta.label}</td><td>{val(m.key,m.a,unit,meta)} <small className="muted">{u}</small></td><td>{val(m.key,m.b,unit,meta)} <small className="muted">{u}</small></td>
     <td>{m.status==='zu wenige Daten'?'—':<>{diffText(m.key,m.diff,unit,meta)}<small className="muted lt-ci"> ({diffText(m.key,m.ci[0],unit,meta)} bis {diffText(m.key,m.ci[1],unit,meta)})</small></>}</td>
     <td>{m.status==='zu wenige Daten'?<span className="muted">zu wenige Tage</span>:<span className={'lt-status '+(m.towardTarget===true?'toward':m.towardTarget===false?'away':m.status)}>{STATUS[m.status]}{m.towardTarget===true?' · Richtung Ziel':m.towardTarget===false?' · weg vom Ziel':''}</span>}</td></tr>;})}</tbody></table></div>
-  <p className="fine tight">„Klar“ heißt spürbar (z. B. mindestens 5 Prozentpunkte im Bereich oder 10 mg/dL) und statistisch abgesichert. „Stabil“: Auch das ganze Unsicherheitsintervall liegt unter der spürbaren Grenze. „Offen“: Die Daten reichen für keine Aussage. Das Intervall berücksichtigt, dass aufeinanderfolgende Tage zusammenhängen.</p>
+  <More label="Wie lese ich das?"><p className="fine tight">„Klar“ heißt spürbar (z. B. mindestens 5 Prozentpunkte im Bereich oder 10 mg/dL) und statistisch abgesichert. „Stabil“: Auch das ganze Unsicherheitsintervall liegt unter der spürbaren Grenze. „Offen“: Die Daten reichen für keine Aussage. Das Intervall berücksichtigt, dass aufeinanderfolgende Tage zusammenhängen.</p></More>
  </article>;
 }
 function Changes({res,unit}:any){
