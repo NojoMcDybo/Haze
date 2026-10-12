@@ -1,6 +1,6 @@
 # Plan: Langzeit, Muster, Prognose-Experiment, KI-Erklärer
 
-Stand: 12. Oktober 2026 · Status: D gemergt (#23, 1.9.0), E gemergt (#26, 1.10.0); **PR F Teil 1 umgesetzt** (Branch `claude/prognose`, 1.11.0); F Teil 2 (TTM/Chronos) und G offen
+Stand: 12. Oktober 2026 · Status: D gemergt (#23, 1.9.0), E gemergt (#26, 1.10.0); F Teil 1 gemergt (#27, 1.11.0); **F Teil 2 umgesetzt** (Branch `claude/prognose-ttm`, 1.12.0); G offen
 
 Nojos Wunsch: Veränderungen über Wochen und Monate erkennen und dort Zusammenhänge finden, wiederkehrende Muster lernen, eine Kurzzeitprognose als klar gekennzeichneten Test. Es gelten dieselben Regeln wie bisher: Alles läuft lokal, die Ergebnisse sind beschreibend, Haze gibt keine Therapiehinweise, und es werden keine Hypothesen über Insulin- oder KH-Mengen geprüft.
 
@@ -88,9 +88,31 @@ Umgesetzt in `shared/analysis/forecast.mjs` und `src/Forecast.tsx`:
   - Danach erscheint sie im Verlauf auf „Jetzt“ als blasse, gestrichelte Linie mit Band hinter einer „jetzt“-Linie, beschriftet „Experiment · nicht belastbar“; beim Zeigen gibt es einen eigenen Text.
   - Nie im Widget, in der Notch oder in Alarmen.
 
-### Teil 2 (offen): Zeitreihen-Grundmodelle
+### Teil 2 (1.12.0, umgesetzt): IBM TTM r2
 
-Bisher gibt es keine fertigen ONNX-Exporte (Recherche 12. Oktober). Nötig ist ein einmaliger Export mit Python und PyTorch auf dem Entwicklungsrechner, danach Ausführung mit onnxruntime-web im Analyse-Thread. Die Modelle müssen dieselbe Rückwärtsprüfung bestehen.
+- **Test mit 7 Varianten** auf derselben Prüfwoche (künstliche Daten, 668 Startpunkte, RMSE bei 30 min gegen die Fortschreibung):
+
+  | Variante | Vorlauf | RMSE 30 min | gegen Fortschreibung |
+  |---|---|---|---|
+  | 52-16 | 4,3 h | 20,4 | −2 % |
+  | 90-30 | 7,5 h | 21,3 | −7 % |
+  | 90-30-l1 | 7,5 h | 20,7 | −4 % |
+  | 180-60-l1 | 15 h | 22,4 | −12 % |
+  | **360-60-l1** | **30 h** | **17,8** | **+11 %** |
+  | 512-48 | 43 h | 18,1 | +10 % |
+  | 512-96 | 43 h | 18,7 | +7 % |
+
+  Kurze Vorläufe schlagen die Fortschreibung nicht. **360-60-ft-l1-r2.1** ist die beste Variante, bei 60 min sogar 17 % besser.
+- **Export:** Der TorchScript-Exporter scheitert am Frequenz-Token (MatMul-Größen). Der dynamo-Exporter mit Opset 18 funktioniert: größte Abweichung 7·10⁻⁶, eine Datei mit 5,8 MB (`tools/export-ttm.py`).
+- **Laufzeit:** onnxruntime-web 1.30.0. Nur 3 Dateien (14,3 MB) liegen in `desktop/vendor/` statt 139 MB `node_modules`. Das WASM wird per `wasmBinary` aus der Datei gelesen, also ohne `fetch`. In Node, in Electron und aus `app.asar` geprüft: 5,5 ms je Lauf, 0,3 s Laden.
+- **Sicherheit:** Alle Dateien liegen im Paket, mit festen SHA-256-Prüfsummen. Vor dem Laden wird geprüft, eine Abweichung führt zur Ablehnung (Test). Kein Netz, kein Python, kein natives Modul.
+- **Einbindung:**
+  - `evaluate` ist jetzt asynchron und nimmt ein Modell von außen an. Dieses braucht 30 h am Stück; alle Modelle werden dann auf denselben Startpunkten verglichen, sonst bleibt es außen vor, mit Begründung.
+  - Live: `kind:'forecast-live'` rechnet den TTM-Pfad im Analyse-Thread aus frischen Nightscout-Werten plus Historie aus `haze.db`, bei jedem neuen Messwert.
+- **Ergebnisse:**
+  - Künstliche Daten im Analyse-Thread: TTM 16,2, AR 16,7, Fortschreibung 18,9 mg/dL bei 30 min. TTM wird gezeigt (14 % besser).
+  - Echte DB-Kopie: nur 51 Startpunkte mit 30 h am Stück, deshalb bleibt TTM außen vor, und die Karte sagt warum.
+- Chronos-Bolt ist nicht umgesetzt: TTM ist kleiner, und der Export ist erprobt.
 
 ### Ursprünglicher Plan F
 
