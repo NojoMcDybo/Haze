@@ -1,6 +1,6 @@
 # Plan: Langzeit, Muster, Prognose-Experiment, KI-Erklärer
 
-Stand: 11. Oktober 2026 · Status: **PR D umgesetzt** (Branch `claude/langzeit`, 1.9.0); E–G offen
+Stand: 12. Oktober 2026 · Status: PR D gemergt (#23, 1.9.0); **PR E umgesetzt** (Branch `claude/muster`, 1.10.0); F–G offen
 
 Nojos Wunsch: Veränderungen über Wochen und Monate erkennen und dort Zusammenhänge finden, wiederkehrende Muster lernen, eine Kurzzeitprognose als klar gekennzeichneten Test. Es gelten dieselben Regeln wie bisher: Alles läuft lokal, die Ergebnisse sind beschreibend, Haze gibt keine Therapiehinweise, und es werden keine Hypothesen über Insulin- oder KH-Mengen geprüft.
 
@@ -46,7 +46,22 @@ Nojos Wunsch: Veränderungen über Wochen und Monate erkennen und dort Zusammenh
   - Vergleichstabelle mit Intervall und Einordnung, Wendepunkte mit gleichzeitigen Veränderungen, Wochen-Zusammenhänge, Monatstabelle.
   - Eine Fehlergrenze um die Auswertung: Ein Fehler dort leert nie das Dashboard.
 
-## PR E – Muster (geplant)
+## PR E – Muster (1.10.0, umgesetzt)
+
+Umgesetzt in `shared/analysis/patterns.mjs` und `src/Patterns.tsx`, als eigener Abschnitt „Muster“ zwischen Zeitraum-Auswertung und Langzeit:
+- **Tagestypen:**
+  - Jeder Tag mit mindestens 70 % Tragezeit wird zu 24 Stundenmitteln, bis zu 4 fehlende Stunden werden ergänzt. Gruppiert wird mit k-Medoids (k = 2–4, Auswahl nach Silhouette).
+  - Typen gibt es erst ab 28 Tagen und einer Silhouette ab 0,25, sonst „keine klaren Typen“.
+  - Namen entstehen aus dem Verlauf: „Ruhiger Tag“ oder „Höher/Niedriger + Tageszeit“.
+  - Gemeinsame Merkmale (Wochenende, Training, kurze Nacht, Katheter ab Tag 2, Tief in der Nacht davor) werden per Fisher-Test mit FDR geprüft und brauchen mindestens 20 Prozentpunkte Unterschied.
+- **Wiederkehrende Regeln:**
+  - 8 feste Fragen, jeweils gegen eine Vergleichsgruppe: Fisher-Test, FDR, mindestens 5 Fälle, Faktor 1,5 und 15 Prozentpunkte Unterschied.
+  - Bestätigung: Die Regel ist vor den letzten 6 Wochen schon zu sehen (einseitig p ≤ 0,1) und zeigt sich in den 6 Wochen erneut.
+  - Gedächtnis in `meta.pattern-memory`: wann zuerst und zuletzt gesehen; verschwundene Regeln bleiben sichtbar.
+- **Ungewöhnliche Tage:** gemessen an den 28 Tagen davor mit robustem z-Wert ≥ 3,5 (Median, MAD mit Mindeststreuung). Zusätzlich muss der Abstand spürbar sein und der Wert außerhalb von allem liegen, was in diesen 28 Tagen vorkam.
+- **Verschoben:** Matrix Profile (wiederkehrende Verlaufsstücke innerhalb eines Tages). Tagestypen und Regeln decken das Ziel verständlicher ab.
+
+### Ursprünglicher Plan
 
 - **Tagestypen:** Clustering der 24-h-Verläufe, danach die Frage, was den Typ vorhersagt (Wochentag, Training, Schlaf, Katheter-Tag).
 - **Wiederkehrende Verläufe:** Matrix Profile (Motive) und Regeln wie „Tief 2–6 h nach Training am Nachmittag ohne Sportmodus: 4 von 6“, mit Häufigkeit, Trefferquote und FDR.
