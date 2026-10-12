@@ -1,44 +1,76 @@
 import React,{useEffect,useLayoutEffect,useRef} from 'react';
-// Zwei (oder mehr) Seiten nebeneinander: Wischen nach links/rechts per Maus (linke Taste gedrückt ziehen), Touchpad
-// oder Touch; dazu Reiter und Strg+Pfeiltasten. Die Höhe folgt der aktiven Seite, damit die Seite weiter normal scrollt.
-const INTERACTIVE='button,a,input,select,textarea,label,summary,[role="slider"],[role="tab"],.point,.range-picker';
+// Seiten wie in Nebel: Die ankommende Seite schiebt sich von rechts über die vorige und deckt sie ab; die darunter bleibt
+// stehen, wird unscharf und blasser. Wirkt wie ein aufgelegtes Blatt, nicht wie ein Karussell. Der Finger (Maus, Touch,
+// Touchpad) führt die Seite 1:1; beim Loslassen entscheidet die Geschwindigkeit, sonst die Hälfte. Reiter und Strg+Pfeile.
+// Das Fenster scrollt weiter normal: Die Höhe folgt der aktiven Seite, jede Seite merkt sich ihre Scrollposition.
+const INTERACTIVE='button,a,input,select,textarea,label,summary,[role="slider"],[role="tab"],.point,.range-picker,.table-scroll';
+const clamp=(v:number,a:number,b:number)=>Math.min(b,Math.max(a,v));
+const SNAP_MS=560;
 export function Pager({page,onPage,labels,children}:{page:number,onPage:(p:number)=>void,labels:string[],children:React.ReactNode}){
- const ref=useRef<HTMLDivElement>(null),drag=useRef<any>(null),pages=React.Children.toArray(children);
+ const ref=useRef<HTMLDivElement>(null),pages=React.Children.toArray(children),last=pages.length-1;
+ const prog=useRef(page),settled=useRef(page),drag=useRef<any>(null),moving=useRef<number[]>([]),timer=useRef<any>(0),scrolls=useRef<number[]>([]),wheel=useRef<any>(null);
  const reduce=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
- // Seite → Scrollposition
- useEffect(()=>{const el=ref.current;if(!el)return;const x=page*el.clientWidth;if(Math.abs(el.scrollLeft-x)>2)el.scrollTo({left:x,behavior:reduce()?'auto':'smooth'});},[page]);
- // Höhe der aktiven Seite übernehmen (auch wenn sie sich ändert, z. B. Auswertung lädt nach)
- useLayoutEffect(()=>{
-  const el=ref.current,active=el?.children[page] as HTMLElement|undefined;if(!el||!active)return;
-  const fit=()=>{el.style.height=active.offsetHeight+'px';};fit();
-  const ro=new ResizeObserver(fit);ro.observe(active);return()=>ro.disconnect();
- },[page,pages.length]);
- // Fenstergröße: auf der aktuellen Seite bleiben
- useEffect(()=>{const el=ref.current;if(!el)return;const ro=new ResizeObserver(()=>{el.scrollTo({left:page*el.clientWidth});});ro.observe(el);return()=>ro.disconnect();},[page]);
- // Natives Wischen (Touchpad, Touch): nach dem Einrasten Seite übernehmen
- const settle=useRef<any>(0);
- const onScroll=()=>{const el=ref.current;if(!el||drag.current?.active)return;clearTimeout(settle.current);settle.current=setTimeout(()=>{const p=Math.round(el.scrollLeft/el.clientWidth);if(p!==page)onPage(Math.max(0,Math.min(pages.length-1,p)));},120);};
- // Maus: mit gedrückter linker Taste ziehen
- const down=(e:React.PointerEvent)=>{
-  if(e.pointerType!=='mouse'||e.button!==0||(e.target as HTMLElement).closest(INTERACTIVE))return;
-  drag.current={x:e.clientX,y:e.clientY,left:ref.current!.scrollLeft,active:false,id:e.pointerId,t:performance.now()};
+ const els=()=>[...(ref.current?.children||[])] as HTMLElement[];
+ // Höhe: während einer Bewegung die größere der beteiligten Seiten, sonst die aktive.
+ const fit=()=>{const el=ref.current;if(!el)return;const list=els(),show=moving.current.length?moving.current:[settled.current];el.style.height=Math.max(...show.map(i=>list[i]?.offsetHeight||0))+'px';};
+ const apply=(p:number)=>{
+  prog.current=p;const el=ref.current;if(!el)return;const lo=Math.floor(clamp(p,0,last)),hi=Math.ceil(clamp(p,0,last));
+  els().forEach((c,i)=>{
+   // In Prozent der eigenen Breite: stimmt auch beim Größenändern des Fensters ohne Neuberechnung.
+   const d=p-i,under=clamp(d,0,2),x=d<0?-d*100:0;
+   c.style.transform=i>0&&x>0?`translate3d(${x.toFixed(3)}%,0,0)`:'';
+   c.style.filter=under<.004||reduce()?'':`blur(${(Math.min(under,1.35)*9).toFixed(2)}px)`;
+   c.style.opacity=under<.004?'':String(1-.26*Math.min(under,1.4));
+   c.style.visibility=(i>=lo&&i<=hi)||moving.current.includes(i)?'':'hidden';
+  });
  };
+ // Ziehen beginnt: laufendes Einrasten anhalten, Nachbarseiten sichtbar machen und Höhe für beide reservieren.
+ const hold=(base:number)=>{clearTimeout(timer.current);els().forEach(c=>c.classList.remove('snap'));moving.current=[...new Set([clamp(base-1,0,last),base,clamp(base+1,0,last)])];fit();};
+ const finish=()=>{moving.current=[];els().forEach(c=>c.classList.remove('snap'));apply(prog.current);fit();};
+ const snapTo=(target:number,from=settled.current)=>{
+  target=clamp(target,0,last);const old=settled.current;settled.current=target;
+  moving.current=[...new Set([Math.floor(clamp(prog.current,0,last)),Math.ceil(clamp(prog.current,0,last)),from,target])];
+  els().forEach(c=>c.classList.add('snap'));apply(target);fit();
+  clearTimeout(timer.current);timer.current=setTimeout(finish,reduce()?0:SNAP_MS+20);
+  if(target!==old){
+   // Scrollposition je Seite merken; die neue Seite beginnt dort, wo man sie verlassen hat (höchstens am Seitenanfang).
+   const top=(ref.current?.getBoundingClientRect().top||0)+scrollY;scrolls.current[old]=scrollY;
+   const back=scrolls.current[target]??Math.min(scrollY,Math.max(0,top-90));if(Math.abs(back-scrollY)>2)scrollTo({top:back,behavior:reduce()?'auto':'smooth'});
+   onPage(target);
+  }
+ };
+ // Seite von außen (Reiter, Tasten, Knopf).
+ useEffect(()=>{if(page!==settled.current)snapTo(page);},[page]);
+ useLayoutEffect(()=>{apply(prog.current);fit();const list=els(),ro=new ResizeObserver(fit);list.forEach(c=>ro.observe(c));ro.observe(ref.current!);return()=>ro.disconnect();},[pages.length]);
+ // Maus, Touch, Stift: erst ab 8 px entscheiden, ob waagerecht gezogen oder senkrecht gescrollt wird.
+ const down=(e:React.PointerEvent)=>{if(e.button!==0||(e.target as HTMLElement).closest(INTERACTIVE))return;drag.current={x:e.clientX,y:e.clientY,base:settled.current,last:e.clientX,t:performance.now(),v:0,lock:null,id:e.pointerId};};
  const move=(e:React.PointerEvent)=>{
-  const d=drag.current,el=ref.current;if(!d||!el||e.pointerId!==d.id)return;
-  const dx=e.clientX-d.x,dy=e.clientY-d.y;
-  if(!d.active){if(Math.abs(dx)<8||Math.abs(dx)<Math.abs(dy)*1.2){if(Math.abs(dy)>12)drag.current=null;return;}d.active=true;el.classList.add('dragging');el.setPointerCapture(e.pointerId);}
-  el.scrollLeft=d.left-dx;
+  const d=drag.current,el=ref.current;if(!d||!el||e.pointerId!==d.id)return;const dx=e.clientX-d.x,dy=e.clientY-d.y;
+  if(!d.lock){if(Math.abs(dx)<8&&Math.abs(dy)<8)return;d.lock=Math.abs(dx)>Math.abs(dy)*1.15?'x':'y';
+   if(d.lock==='x'){try{el.setPointerCapture(e.pointerId);}catch{}document.body.classList.add('paging');getSelection()?.removeAllRanges();hold(d.base);}}
+  if(d.lock!=='x')return;
+  const now=performance.now();d.v=(e.clientX-d.last)/Math.max(1,now-d.t);d.last=e.clientX;d.t=now;
+  let p=d.base-dx/el.clientWidth;if(p<0)p*=.32;if(p>last)p=last+(p-last)*.32;// Gummiband an den Rändern
+  apply(clamp(p,-.12,last+.12));
  };
  const up=(e:React.PointerEvent)=>{
-  const d=drag.current,el=ref.current;drag.current=null;if(!d||!el||!d.active)return;
-  el.classList.remove('dragging');
-  const dx=e.clientX-d.x,fast=Math.abs(dx)/(performance.now()-d.t)>.5,far=Math.abs(dx)>el.clientWidth*.15;
-  const target=Math.max(0,Math.min(pages.length-1,page+((far||fast)?(dx<0?1:-1):0)));
-  el.scrollTo({left:target*el.clientWidth,behavior:reduce()?'auto':'smooth'});if(target!==page)onPage(target);
-  // Der Klick nach einem Wischen soll nichts auslösen (z. B. Messpunkt im Diagramm).
-  const stop=(ev:Event)=>{ev.stopPropagation();ev.preventDefault();};el.addEventListener('click',stop,{capture:true,once:true});setTimeout(()=>el.removeEventListener('click',stop,{capture:true}),50);
+  const d=drag.current;drag.current=null;if(!d||d.lock!=='x')return;document.body.classList.remove('paging');
+  // Der Klick nach einem Zug soll nichts auslösen (z. B. Messpunkt im Diagramm).
+  const stop=(ev:Event)=>{ev.stopPropagation();ev.preventDefault();};addEventListener('click',stop,{capture:true,once:true});setTimeout(()=>removeEventListener('click',stop,{capture:true}),60);
+  snapTo(d.v<-.45?d.base+1:d.v>.45?d.base-1:Math.round(clamp(prog.current,0,last)),d.base);
  };
- return <div ref={ref} className="pager" onScroll={onScroll} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} aria-roledescription="Seiten" >
+ // Touchpad: waagerechtes Wischen (deltaX) führt die Seite, kurz nach dem letzten Ereignis rastet sie ein.
+ useEffect(()=>{const el=ref.current;if(!el)return;
+  const onWheel=(e:WheelEvent)=>{
+   if(Math.abs(e.deltaX)<=Math.abs(e.deltaY)||Math.abs(e.deltaX)<1)return;
+   for(let n=e.target as HTMLElement|null;n&&n!==el;n=n.parentElement)if(n.scrollWidth>n.clientWidth+1&&getComputedStyle(n).overflowX!=='visible'&&getComputedStyle(n).overflowX!=='hidden')return;// Tabelle scrollt selbst
+   e.preventDefault();let w=wheel.current;if(!w){w=wheel.current={base:settled.current,p:prog.current};hold(w.base);}
+   w.p=clamp(w.p+e.deltaX/el.clientWidth,Math.max(-.12,w.base-1),Math.min(last+.12,w.base+1));apply(w.p);
+   clearTimeout(w.t);w.t=setTimeout(()=>{const s=wheel.current;wheel.current=null;snapTo(s.p-s.base>.18?s.base+1:s.p-s.base<-.18?s.base-1:s.base,s.base);},110);
+  };
+  el.addEventListener('wheel',onWheel,{passive:false});return()=>el.removeEventListener('wheel',onWheel);
+ },[last]);
+ return <div ref={ref} className="pager" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onLostPointerCapture={up} aria-roledescription="Seiten">
   {pages.map((p,i)=><section key={i} className="page" role="tabpanel" id={`page-${i}`} aria-label={labels[i]} aria-hidden={i!==page} inert={i!==page}>{p}</section>)}
  </div>;
 }
@@ -48,4 +80,8 @@ export function PageTabs({page,onPage,labels}:{page:number,onPage:(p:number)=>vo
   if(e.key==='ArrowRight'&&page<labels.length-1){e.preventDefault();onPage(page+1);}if(e.key==='ArrowLeft'&&page>0){e.preventDefault();onPage(page-1);}};
   addEventListener('keydown',key);return()=>removeEventListener('keydown',key);},[page,labels.length]);
  return <div className="segmented page-tabs" role="tablist" aria-label="Ansicht">{labels.map((l,i)=><button key={l} role="tab" aria-selected={page===i} aria-controls={`page-${i}`} className={page===i?'active':''} onClick={()=>onPage(i)} title={i>page?'Oder nach links wischen':i<page?'Oder nach rechts wischen':undefined}>{l}</button>)}</div>;
+}
+// Hinweis am Ende einer Seite: wohin es weitergeht (wie die Wisch-Aufforderung in Nebel).
+export function SwipeHint({title,text,onClick}:{title:string,text:string,onClick:()=>void}){
+ return <button className="swipe-hint" onClick={onClick}><span><b>{title}</b><small>{text}</small></span><span className="swipe-arrows" aria-hidden="true"><i>›</i><i>›</i><i>›</i></span></button>;
 }

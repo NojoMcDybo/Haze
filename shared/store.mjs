@@ -90,7 +90,7 @@ export function openStore(file){
     sources:all('select source,count(*) n from glucose group by source')};
   },
   backup(target){db.exec(`vacuum into '${target.replaceAll("'","''")}'`);},
-  close(){db.close();},
+  close(){if(db.isOpen)db.close();},
  };
 }
 // Sicherungen: die letzten 7 Tage täglich, dazu 8 Wochen lang je eine (die jüngste) pro Woche.

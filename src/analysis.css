@@ -61,15 +61,20 @@
 .tandem-form{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;align-items:end}.tandem-form .field{margin:12px 0}.tandem-form .button{grid-column:1/-1}
 .garmin-steps .compact-button{margin-left:8px;vertical-align:middle}
 @media(max-width:560px){.tandem-form{grid-template-columns:1fr}}
-/* Zwei Seiten (Jetzt | Auswertung), per Wischen erreichbar. Rand im Pager, damit Kartenschatten nicht abgeschnitten werden. */
-.pager{display:flex;align-items:flex-start;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;margin:0 -18px;transition:height .25s ease}
-.pager::-webkit-scrollbar{display:none}
-.pager.dragging{scroll-snap-type:none;cursor:grabbing;user-select:none}
-.page{flex:0 0 100%;min-width:0;scroll-snap-align:start;scroll-snap-stop:always;padding:2px 18px 30px;box-sizing:border-box}
+/* Zwei Seiten (Jetzt | Auswertung) wie in Nebel: übereinander gestapelt, die obere schiebt sich von rechts herein.
+   Rand im Pager, damit Kartenschatten nicht abgeschnitten werden. */
+:root{--spring:cubic-bezier(.22,.9,.24,1)}
+.pager{display:grid;overflow:hidden;margin:0 -18px;touch-action:pan-y;transition:height .45s var(--spring)}
+.page{grid-area:1/1;align-self:start;min-width:0;padding:2px 18px 30px;box-sizing:border-box;background:var(--bg)}
+.page+.page{border-radius:26px 0 0 26px;box-shadow:-22px 0 54px rgba(0,0,0,.55)}
+:root[data-theme=light] .page+.page{box-shadow:-22px 0 54px rgba(23,32,32,.16)}
+.page.snap{transition:transform .56s var(--spring),opacity .56s var(--spring),filter .56s var(--spring)}
+.page.snap,body.paging .page{will-change:transform,filter}
+body.paging,body.paging *{user-select:none!important;cursor:grabbing!important}
 .page>.analysis{margin-top:0}
 .page-tabs{padding:3px}
 .page-tabs button{padding:7px 13px;font-size:11px}
-@media(prefers-reduced-motion:reduce){.pager{transition:none}}
+@media(prefers-reduced-motion:reduce){.pager,.page.snap{transition:none}.swipe-arrows i{animation:none}}
 @media(max-width:700px){.toolbar-actions{flex-wrap:wrap;justify-content:flex-end;row-gap:10px}.page-tabs{order:9;flex-basis:100%;justify-content:center}.page-tabs button{flex:1;padding:7px 9px;font-size:11px}}
 /* Langzeit: Wochenverlauf, Vergleiche, Wendepunkte, Monate */
 .longterm{margin-top:22px;display:flex;flex-direction:column;gap:14px}
@@ -91,3 +96,36 @@
 .table-scroll .lt-compare{min-width:470px}
 @media(max-width:700px){.longterm .card-top{flex-wrap:wrap;gap:10px}.lt-ci{display:block}}
 .analysis-grid>*{min-width:0;overflow-x:auto}
+/* Wisch-Hinweis am Seitenende (aus Nebel) */
+.swipe-hint{display:flex;align-items:center;gap:14px;width:100%;margin-top:18px;padding:16px 20px;border-radius:20px;background:var(--card);border:1px solid var(--border);text-align:left;color:var(--text);transition:transform .3s var(--spring)}
+.swipe-hint:active{transform:scale(.985)}
+.swipe-hint>span:first-child{flex:1;display:flex;flex-direction:column;gap:4px}
+.swipe-hint b{font-size:14px;font-weight:650}.swipe-hint small{font-size:11px;color:var(--muted)}
+.swipe-arrows{display:flex;gap:1px;font-size:20px;color:var(--muted)}
+.swipe-arrows i{font-style:normal;animation:drift 1.9s ease-in-out infinite}
+.swipe-arrows i:nth-child(2){animation-delay:.14s}.swipe-arrows i:nth-child(3){animation-delay:.28s}
+@keyframes drift{0%,100%{opacity:.25;transform:translateX(0)}50%{opacity:1;transform:translateX(4px)}}
+@media(hover:hover){.swipe-hint:hover{transform:translateX(-3px)}}
+/* Datenquellen oben auf der Auswertung */
+.sources{display:flex;flex-direction:column;gap:10px;margin-bottom:6px}
+.sources-head{display:flex;align-items:center;gap:14px}.sources-head .chart-label{margin-left:auto}
+.source-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.source-tile{display:grid;grid-template-columns:auto 1fr;align-items:start;gap:4px 10px;padding:14px 14px 12px;border-radius:18px;background:var(--n-surface,var(--card));box-shadow:inset 0 0 0 1px var(--n-line,var(--border));transition:box-shadow .3s var(--spring)}
+.source-tile>div{display:flex;flex-direction:column;gap:3px;min-width:0}
+.source-tile b{font-size:13px;font-weight:650}
+.source-tile small{font-size:10.5px;color:var(--muted);line-height:1.4}
+.source-tile .button{grid-column:1/-1;margin-top:8px;justify-self:start}
+.source-tile.open{box-shadow:inset 0 0 0 1.5px var(--text)}
+.source-dot{width:8px;height:8px;margin-top:5px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--muted)}
+.source-tile.ok .source-dot{background:var(--text);box-shadow:none}
+.source-panel{display:grid;grid-template-rows:0fr;transition:grid-template-rows .42s var(--spring)}
+.source-panel.open{grid-template-rows:1fr}.source-panel>div{overflow:hidden}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media(max-width:900px){.source-tiles{grid-template-columns:repeat(2,1fr)}}
+/* Aufklappbar (aus Nebel): Plus dreht zum Kreuz, Inhalt gleitet auf */
+.more-toggle{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);padding:6px 0}
+.more-toggle i{font-style:normal;font-size:15px;line-height:1;transition:transform .42s var(--spring);will-change:transform}
+.more.open .more-toggle i{transform:rotate(45deg)}
+.more-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .42s var(--spring)}
+.more.open .more-body{grid-template-rows:1fr}.more-body>div{overflow:hidden}
+.more .caveats{margin-top:4px}
